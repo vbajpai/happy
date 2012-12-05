@@ -1,5 +1,5 @@
 /*
- * happy/happy.c --
+ * happy.c --
  *
  * A simple TCP happy eye balls probing tool. It uses non-blocking
  * connect() calls to establish connections concurrently to a number
@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -56,6 +57,8 @@ typedef struct endpoint {
 } endpoint_t;
 
 static endpoint_t *endpoints = NULL;
+
+static int smode = 0;
 
 /*
  * A calloc() that exits if we run out of memory.
@@ -258,7 +261,9 @@ collect(void)
  * Report the results. For each endpoint, we show the min, avg, max
  * time measured to establish a connection. We sort the results for
  * the endpoints associated with a certain host / port pair by the
- * measured average connection time.
+ * measured average connection time. There is also a more compact
+ * semicolon separated output format intended for other programs to
+ * read and process it.
  */
 
 static int
@@ -289,6 +294,7 @@ report(void)
     char host[NI_MAXHOST];
     char serv[NI_MAXSERV];
     endpoint_t *ep, *prev_ep;
+    time_t now;
 
     if (! endpoints) {
         return;
@@ -315,11 +321,20 @@ report(void)
 
     /* Ready for producing human readable output. */
 
+    if (smode) {
+	now = time(NULL);
+    }
+
     for (prev_ep = NULL, ep = endpoints; ep->host; ep++) {
 
         if (!prev_ep || strcmp(ep->host, prev_ep->host) != 0
 	    || strcmp(ep->port, prev_ep->port) != 0) {
-	    printf("%s%s\n", prev_ep ? "\n" : "", ep->host);
+	    if (smode) {
+		printf("%sHAPPY.0;%lu;OK;%s;%s", prev_ep ? "\n" : "",
+		       now, ep->host, ep->port);
+	    } else {
+		printf("%s%s\n", prev_ep ? "\n" : "", ep->host);
+	    }
 	    prev_ep = ep;
 	}
       
@@ -332,21 +347,38 @@ report(void)
 		    progname, gai_strerror(n));
 	    return;
 	}
+	if (smode) {
+	    printf(";");
+	}
 	printf("%s%s%s:%s%n",
 	       strchr(host, ':') == NULL ? "" : "[",
 	       host,
 	       strchr(host, ':') == NULL ? "" : "]",
 	       serv,
 	       &len);
-	if (! ep->cnt) {
-	    printf("%*s%8s ms %8s ms%8s ms \n", 
-		   (48-len), "", "-", "-", "-");
+	if (smode) {
+	    if (ep->cnt) {
+		printf(";%u.%03u;%u.%03u;%u.%03u",
+		       ep->min/1000, ep->min%1000,
+		       (ep->sum/ep->cnt)/1000, (ep->sum/ep->cnt)%1000,
+		       ep->max/1000, ep->max%1000);
+	    }
 	} else {
- 	    printf("%*s%4u.%03u ms %4u.%03u ms%4u.%03u ms \n", 
-		   (48-len), "",
-		   ep->min/1000, ep->min%1000, 
-		   (ep->sum/ep->cnt)/1000, (ep->sum/ep->cnt)%1000, 
-		   ep->max/1000, ep->max%1000);
+	    if (! ep->cnt) {
+		printf("%*s%8s ms %8s ms%8s ms \n", 
+		       (48-len), "", "-", "-", "-");
+	    } else {
+		printf("%*s%4u.%03u ms %4u.%03u ms%4u.%03u ms \n", 
+		       (48-len), "",
+		       ep->min/1000, ep->min%1000, 
+		       (ep->sum/ep->cnt)/1000, (ep->sum/ep->cnt)%1000, 
+		       ep->max/1000, ep->max%1000);
+	    }
+	}
+    }
+    if (smode) {
+	if (prev_ep) {
+	    printf("\n");
 	}
     }
 }
@@ -360,7 +392,7 @@ main(int argc, char *argv[])
     char **usr_ports = NULL;
     char **ports = def_ports;
 
-    while ((c = getopt(argc, argv, "p:q:h")) != -1) {
+    while ((c = getopt(argc, argv, "p:q:hs")) != -1) {
 	switch (c) {
 	case 'p':
 	    if (! usr_ports) {
@@ -381,6 +413,9 @@ main(int argc, char *argv[])
 		  exit(1);
 		}
 	    }
+	    break;
+	case 's':
+	    smode = 1;
 	    break;
 	case 'h':
 	default: /* '?' */
