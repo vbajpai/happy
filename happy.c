@@ -204,7 +204,7 @@ collect(void)
     socklen_t soerrorlen = sizeof(soerror);
     endpoint_t *ep;
 
-    while (1) {
+    while (endpoints) {
         max = -1;
 	FD_ZERO(&fdset);
 	for (ep = endpoints; ep->host; ep++) {
@@ -431,7 +431,7 @@ main(int argc, char *argv[])
 	}
     }
 
-    for (int i = 0; i < nqueries; i++) {
+    for (i = 0; i < nqueries; i++) {
 	prepare();
 	collect();
     }
