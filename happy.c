@@ -333,7 +333,11 @@ report(void)
 		printf("%sHAPPY.0;%lu;OK;%s;%s", prev_ep ? "\n" : "",
 		       now, ep->host, ep->port);
 	    } else {
-		printf("%s%s\n", prev_ep ? "\n" : "", ep->host);
+		if (prev_ep) {
+		    printf("\n");
+		}
+		printf("%s:%s%n", ep->host, ep->port, &len);
+		printf("%*s  MIN ms   AVG ms   MAX ms\n", (48-len), "");
 	    }
 	    prev_ep = ep;
 	}
@@ -347,17 +351,11 @@ report(void)
 		    progname, gai_strerror(n));
 	    return;
 	}
+	printf("%s%s%n", (smode) ? ";" : " ", host, &len);
 	if (smode) {
-	    printf(";");
-	}
-	printf("%s%s%s:%s%n",
-	       strchr(host, ':') == NULL ? "" : "[",
-	       host,
-	       strchr(host, ':') == NULL ? "" : "]",
-	       serv,
-	       &len);
-	if (smode) {
-	    if (ep->cnt) {
+	    if (!ep->cnt) {
+		printf(";;;");
+	    } else {
 		printf(";%u.%03u;%u.%03u;%u.%03u",
 		       ep->min/1000, ep->min%1000,
 		       (ep->sum/ep->cnt)/1000, (ep->sum/ep->cnt)%1000,
@@ -365,10 +363,10 @@ report(void)
 	    }
 	} else {
 	    if (! ep->cnt) {
-		printf("%*s%8s ms %8s ms%8s ms \n", 
+		printf("%*s%8s %8s %8s\n", 
 		       (48-len), "", "-", "-", "-");
 	    } else {
-		printf("%*s%4u.%03u ms %4u.%03u ms%4u.%03u ms \n", 
+		printf("%*s%4u.%03u %4u.%03u %4u.%03u\n", 
 		       (48-len), "",
 		       ep->min/1000, ep->min%1000, 
 		       (ep->sum/ep->cnt)/1000, (ep->sum/ep->cnt)%1000, 
