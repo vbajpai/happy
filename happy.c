@@ -38,8 +38,6 @@ static const char *progname = "happy";
 #endif
 
 typedef struct endpoint {
-    const char *host;
-    const char *port;
     int family;
     int socktype;
     int protocol;
@@ -49,16 +47,32 @@ typedef struct endpoint {
     int socket;
     struct timeval tvs;
 
-    unsigned int cur;
-    unsigned int min;
-    unsigned int max;
     unsigned int sum;
     unsigned int cnt;
+    unsigned int *values;
 } endpoint_t;
 
-static endpoint_t *endpoints = NULL;
+typedef struct target {
+    const char *host;
+    const char *port;
+    int num_endpoints;
+    endpoint_t *endpoints;
+} target_t;
+
+static target_t *targets = NULL;
 
 static int smode = 0;
+static int skmode = 0;
+static int nqueries = 3;
+static int timeout = 2;
+
+static int target_valid(target_t *tp) {
+    return (tp && tp->host && tp->port && tp->endpoints);
+}
+
+static int endpoint_valid(endpoint_t *ep) {
+    return (ep && ep->addrlen);
+}
 
 /*
  * A calloc() that exits if we run out of memory.
@@ -76,59 +90,46 @@ xcalloc(size_t nmemb, size_t size)
 }
 
 /*
- * Resolve the host name and create the vector of endpoints we are
- * going to probe subsequently.
+ * Resolve the host name and if successful establish a new target and
+ * create the vector of endpoints we are going to probe subsequently.
  */
 
 static void
-expand(const char *host, const char *port)
+expand(target_t *targets, const char *host, const char *port)
 {
     struct addrinfo hints, *ai_list, *ai;
-    int i = 0, n;
-    long max;
+    int n;
+    target_t *tp;
     endpoint_t *ep;
 
-    assert(host && port);
+    assert(targets && host && port);
     
-    max = sysconf(_SC_OPEN_MAX);
-    if (max == -1) {
-	fprintf(stderr, "%s: sysconf: %s\n",
-		progname, strerror(errno));
-	exit(EXIT_FAILURE);
-    }
-    
-    if (! endpoints) {
-	endpoints = xcalloc(sizeof(endpoint_t), max);
-    }
-
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
     n = getaddrinfo(host, port, &hints, &ai_list);
     if (n != 0) {
-	fprintf(stderr, "%s: getaddrinfo: %s (skipping)\n",
-		progname, gai_strerror(n));
+	fprintf(stderr, "%s: %s port %s: %s (skipping)\n",
+		progname, host, port, gai_strerror(n));
 	return;
     }
 
-    for (ai = ai_list; ai; ai = ai->ai_next) {
-	
-	while (i < max && endpoints[i].host) i++;
-	if (i == max) {
-	    fprintf(stderr, "%s: out of socket descriptors\n", 
-		    progname);
-	    exit(EXIT_FAILURE);
-	}
+    for (tp = targets; target_valid(tp); tp++) ;
 
-	ep = &endpoints[i];
-	ep->host = host;
-	ep->port = port;
+    for (ai = ai_list, tp->num_endpoints = 0;
+	 ai; ai = ai->ai_next, tp->num_endpoints++) ;
+    tp->host = host;
+    tp->port = port;
+    tp->endpoints = xcalloc(1 + tp->num_endpoints, sizeof(endpoint_t));
+
+    for (ai = ai_list, ep = tp->endpoints; ai; ai = ai->ai_next, ep++) {
 	ep->family = ai->ai_family;
 	ep->socktype = ai->ai_socktype;
 	ep->protocol = ai->ai_protocol;
 	memcpy(&ep->addr, ai->ai_addr, ai->ai_addrlen);
 	ep->addrlen = ai->ai_addrlen;
+	ep->values = xcalloc(nqueries, sizeof(unsigned int));
     }
     
     freeaddrinfo(ai_list);
@@ -140,51 +141,56 @@ expand(const char *host, const char *port)
  */
 
 static void
-prepare()
+prepare(target_t *targets)
 {
     int flags;
+    target_t *tp;
     endpoint_t *ep;
 
-    if (! endpoints) {
+    assert(targets);
+
+    if (! targets->num_endpoints) {
         return;
     }
 
-    for (ep = endpoints; ep->host; ep++) {
-        ep->socket = socket(ep->family, ep->socktype, ep->protocol);
-        if (ep->socket < 0) {
-	    switch (errno) {
-	    case EAFNOSUPPORT:
-	    case EPROTONOSUPPORT:
+    for (tp = targets; target_valid(tp); tp++) {
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    ep->socket = socket(ep->family, ep->socktype, ep->protocol);
+	    if (ep->socket < 0) {
+		switch (errno) {
+		case EAFNOSUPPORT:
+		case EPROTONOSUPPORT:
+		    continue;
+		    
+		default:
+		    fprintf(stderr, "%s: socket: %s (skipping)\n",
+			    progname, strerror(errno));
 		continue;
-		
-	    default:
-		fprintf(stderr, "%s: socket: %s (skipping)\n",
+		}
+	    }
+	    
+	    flags = fcntl(ep->socket, F_GETFL, 0);
+	    if (fcntl(ep->socket, F_SETFL, flags | O_NONBLOCK) == -1) {
+		fprintf(stderr, "%s: fcntl: %s (skipping)\n",
 			progname, strerror(errno));
+		(void) close(ep->socket);
 		continue;
 	    }
-        }
-
-	flags = fcntl(ep->socket, F_GETFL, 0);
-	if (fcntl(ep->socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-	    fprintf(stderr, "%s: fcntl: %s (skipping)\n",
-		    progname, strerror(errno));
-	    (void) close(ep->socket);
-	    continue;
-	}
-
-
-	if (connect(ep->socket, 
-		    (struct sockaddr *) &ep->addr,
-		    ep->addrlen) == -1) {
- 	    if (errno != EINPROGRESS) {
-	        (void) close(ep->socket);
-		fprintf(stderr, "%s: connect: %s (skipping)\n",
-			progname, strerror(errno));
-		continue;
+	    
+	    
+	    if (connect(ep->socket, 
+			(struct sockaddr *) &ep->addr,
+			ep->addrlen) == -1) {
+		if (errno != EINPROGRESS) {
+		    (void) close(ep->socket);
+		    fprintf(stderr, "%s: connect: %s (skipping)\n",
+			    progname, strerror(errno));
+		    continue;
+		}
 	    }
+	    
+	    (void) gettimeofday(&ep->tvs, NULL);
 	}
-
-	(void) gettimeofday(&ep->tvs, NULL);
     }
 }
 
@@ -195,75 +201,89 @@ prepare()
  */
 
 static void
-collect(void)
+collect(target_t *targets)
 {
-    int max;
+    int rc, max;
     fd_set fdset;
-    struct timeval tv, td;
+    struct timeval tv, td, to;
     int soerror;
     socklen_t soerrorlen = sizeof(soerror);
+    target_t *tp;
     endpoint_t *ep;
 
-    while (endpoints) {
-        max = -1;
+    assert(targets);
+
+    while (1) {
+
 	FD_ZERO(&fdset);
-	for (ep = endpoints; ep->host; ep++) {
-	    if (ep->socket) {
-	        FD_SET(ep->socket, &fdset);
-		if (ep->socket > max) max = ep->socket;
+	for (tp = targets, max = -1; target_valid(tp); tp++) {
+	    for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+		if (ep->socket) {
+		    FD_SET(ep->socket, &fdset);
+		    if (ep->socket > max) max = ep->socket;
+		}
 	    }
 	}
-
 	if (max == -1) {
+	    break;
+	}
+	
+	if (timeout) {
+	    to.tv_sec = timeout;
+	    to.tv_usec = 0;
+	}
+	
+	rc = select(1 + max, NULL, &fdset, NULL, timeout ? &to : NULL);
+	if (rc == -1) {
+	    fprintf(stderr, "%s: select failed: %s\n",
+		    progname, strerror(errno));
+	    exit(EXIT_FAILURE);
+	}
+	
+	if (rc == 0) {
+	    /* timeout occured - fail all pending attempts and quit */
+	    for (tp = targets; target_valid(tp); tp++) {
+		for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+		    if (ep->socket) {
+			ep->cnt++;
+			(void) close(ep->socket);
+			ep->socket = 0;
+		    }
+		}
+	    }
 	    return;
 	}
-
-        if (select(1 + max, NULL, &fdset, NULL, NULL) == -1) {
-            fprintf(stderr, "%s: select failed: %s\n",
-                    progname, strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-
+    
 	(void) gettimeofday(&tv, NULL);
-
-	for (ep = endpoints; ep->host; ep++) {
-	    if (ep->socket && FD_ISSET(ep->socket, &fdset)) {
-
-		if (-1 == getsockopt(ep->socket, SOL_SOCKET, SO_ERROR,
-				     &soerror, &soerrorlen)) {
-		    fprintf(stderr, "%s: getsockopt: %s\n",
-			    progname, strerror(errno));
-		    exit(EXIT_FAILURE);
-		}
-
-		if (! soerror) {
-		    /* calculate stats */
-		    timersub(&tv, &ep->tvs, &td);
+	
+	for (tp = targets; target_valid(tp); tp++) {
+	    for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+		if (ep->socket && FD_ISSET(ep->socket, &fdset)) {
+		    
+		    if (-1 == getsockopt(ep->socket, SOL_SOCKET, SO_ERROR,
+					 &soerror, &soerrorlen)) {
+			fprintf(stderr, "%s: getsockopt: %s\n",
+				progname, strerror(errno));
+			exit(EXIT_FAILURE);
+		    }
+		    (void) close(ep->socket);
 		    ep->cnt++;
-		    ep->cur = td.tv_sec*1000000 + td.tv_usec;
-		    ep->sum += ep->cur;
-		    if (ep->cnt == 1 || ep->cur < ep->min) {
-			ep->min = ep->cur;
-		    }
-		    if (ep->cnt == 1 || ep->cur > ep->max) {
-			ep->max = ep->cur;
+		    ep->socket = 0;
+		    if (! soerror) {
+			/* calculate stats */
+			timersub(&tv, &ep->tvs, &td);
+			ep->values[ep->cnt-1] = td.tv_sec*1000000 + td.tv_usec;
+			ep->sum += ep->values[ep->cnt-1];
 		    }
 		}
-
-	        (void) close(ep->socket);
-	        ep->socket = 0;
 	    }
 	}
     }
 }
-
+    
 /*
- * Report the results. For each endpoint, we show the min, avg, max
- * time measured to establish a connection. We sort the results for
- * the endpoints associated with a certain host / port pair by the
- * measured average connection time. There is also a more compact
- * semicolon separated output format intended for other programs to
- * read and process it.
+ * Sort the results for each target. This is in particular useful for
+ * interactive usage.
  */
 
 static int
@@ -271,111 +291,122 @@ cmp(const void *a, const void *b)
 {
     endpoint_t *pa = (endpoint_t *) a;
     endpoint_t *pb = (endpoint_t *) b;
-    int aa, ab;
 
-    if (! pa->cnt) return 1;
-    if (! pb->cnt) return -1;
+    if (! pa->cnt || ! pb->cnt) {
+	return 0;
+    }
 
-    aa = pa->sum/pa->cnt;
-    ab = pb->sum/pb->cnt;
-    
-    if (aa < ab) {
+    if (pa->sum/pa->cnt < pb->sum/pb->cnt) {
 	return -1;
-    } else if (aa > ab) {
+    } else if (pa->sum/pa->cnt > pb->sum/pb->cnt) {
 	return 1;
     }
     return 0;
 }
 
 static void
-report(void)
+sort(target_t *targets)
 {
-    int n, cnt, len;
+    target_t *tp;
+    endpoint_t *ep;
+
+    assert(targets);
+
+    for (tp = targets; target_valid(tp); tp++) {
+	if (tp->endpoints) {
+	    qsort(tp->endpoints, tp->num_endpoints, sizeof(*ep), cmp);
+	}
+    }
+}
+
+/*
+ * Report the results. For each endpoint of a target, we show the time
+ * measured to establish a connection. This default format is intended
+ * primarily for human readers.
+ */
+
+static void
+report(target_t *targets)
+{
+    int i, n, len;
     char host[NI_MAXHOST];
     char serv[NI_MAXSERV];
-    endpoint_t *ep, *prev_ep;
-    time_t now;
+    target_t *tp;
+    endpoint_t *ep;
 
-    if (! endpoints) {
-        return;
-    }
+    assert(targets);
 
-    /* Lets first sort the results for each host / port combination by
-     * passing proper slices of the endpoints array to qsort(). */
+    for (tp = targets; target_valid(tp); tp++) {
 
-    for (prev_ep = NULL, ep = endpoints; ep->host; ep++) {
-	if (!prev_ep || strcmp(ep->host, prev_ep->host) != 0
-	    || strcmp(ep->port, prev_ep->port) != 0) {
-	    if (prev_ep) {
-		qsort(prev_ep, cnt, sizeof(*ep), cmp);
+	printf("%s%s:%s\n",
+	       (tp != targets) ? "\n" : "", tp->host, tp->port);
+
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	
+	    n = getnameinfo((struct sockaddr *) &ep->addr, 
+			    ep->addrlen,
+			    host, sizeof(host), serv, sizeof(serv),
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+	    if (n) {
+		fprintf(stderr, "%s: getnameinfo: %s\n",
+			progname, gai_strerror(n));
+		continue;
 	    }
-	    prev_ep = ep;
-	    cnt = 1;
-	} else {
-	    cnt++;
-	}
-    }
-    if (prev_ep) {
-	qsort(prev_ep, cnt, sizeof(*ep), cmp);
-    }
-
-    /* Ready for producing human readable output. */
-
-    if (smode) {
-	now = time(NULL);
-    }
-
-    for (prev_ep = NULL, ep = endpoints; ep->host; ep++) {
-
-        if (!prev_ep || strcmp(ep->host, prev_ep->host) != 0
-	    || strcmp(ep->port, prev_ep->port) != 0) {
-	    if (smode) {
-		printf("%sHAPPY.0;%lu;OK;%s;%s", prev_ep ? "\n" : "",
-		       now, ep->host, ep->port);
-	    } else {
-		if (prev_ep) {
-		    printf("\n");
-		}
-		printf("%s:%s%n", ep->host, ep->port, &len);
-		printf("%*s  MIN ms   AVG ms   MAX ms\n", (48-len), "");
-	    }
-	    prev_ep = ep;
-	}
-      
-	n = getnameinfo((struct sockaddr *) &ep->addr, 
-			ep->addrlen,
-			host, sizeof(host), serv, sizeof(serv),
-			NI_NUMERICHOST | NI_NUMERICSERV);
-	if (n) {
-  	    fprintf(stderr, "%s: getnameinfo: %s\n",
-		    progname, gai_strerror(n));
-	    return;
-	}
-	printf("%s%s%n", (smode) ? ";" : " ", host, &len);
-	if (smode) {
-	    if (!ep->cnt) {
-		printf(";;;");
-	    } else {
-		printf(";%u.%03u;%u.%03u;%u.%03u",
-		       ep->min/1000, ep->min%1000,
-		       (ep->sum/ep->cnt)/1000, (ep->sum/ep->cnt)%1000,
-		       ep->max/1000, ep->max%1000);
-	    }
-	} else {
+	    printf(" %s%n", host, &len);
 	    if (! ep->cnt) {
-		printf("%*s%8s %8s %8s\n", 
-		       (48-len), "", "-", "-", "-");
+		printf("%*s%8s\n", 
+		       (42-len), "", "-");
 	    } else {
-		printf("%*s%4u.%03u %4u.%03u %4u.%03u\n", 
-		       (48-len), "",
-		       ep->min/1000, ep->min%1000, 
-		       (ep->sum/ep->cnt)/1000, (ep->sum/ep->cnt)%1000, 
-		       ep->max/1000, ep->max%1000);
+		printf("%*s", (42-len), "");
+		for (i = 0; i < ep->cnt; i++) {
+		    printf(" %4u.%03u",
+			   ep->values[i] / 1000,
+			   ep->values[i] % 1000);
+		}
+		printf("\n");
 	    }
 	}
     }
-    if (smode) {
-	if (prev_ep) {
+}
+
+/*
+ * Report the results. This function produces a more compact semicolon
+ * separated output format intended for consumption by other programs.
+ */
+
+static void
+report_sk(target_t *targets)
+{
+    int i, n;
+    char host[NI_MAXHOST];
+    char serv[NI_MAXSERV];
+    target_t *tp;
+    endpoint_t *ep;
+    time_t now;
+    
+    assert(targets);
+    
+    now = time(NULL);
+
+    for (tp = targets; target_valid(tp); tp++) {
+
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	
+	    n = getnameinfo((struct sockaddr *) &ep->addr, 
+			    ep->addrlen,
+			    host, sizeof(host), serv, sizeof(serv),
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+	    if (n) {
+		fprintf(stderr, "%s: getnameinfo: %s\n",
+			progname, gai_strerror(n));
+		continue;
+	    }
+
+	    printf("HAPPY.0;%lu;%s;%s;%s;%s",
+		   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
+	    for (i = 0; i < ep->cnt; i++) {
+		printf(";%u", ep->values[i]);
+	    }
 	    printf("\n");
 	}
     }
@@ -385,12 +416,13 @@ int
 main(int argc, char *argv[])
 {
     int i, j, c, p = 0;
-    int nqueries = 3;
     char *def_ports[] = { "80", 0 };
     char **usr_ports = NULL;
     char **ports = def_ports;
+    target_t *tp;
+    endpoint_t *ep;
 
-    while ((c = getopt(argc, argv, "p:q:hs")) != -1) {
+    while ((c = getopt(argc, argv, "p:q:hmst:")) != -1) {
 	switch (c) {
 	case 'p':
 	    if (! usr_ports) {
@@ -408,35 +440,73 @@ main(int argc, char *argv[])
 		} else {
 		    fprintf(stderr, "%s: invalid argument '%s' "
 			    "for option -q\n", progname, optarg);
-		  exit(1);
+		    exit(EXIT_FAILURE);
 		}
 	    }
+	    break;
+	case 'm':
+	    skmode = 1;
 	    break;
 	case 's':
 	    smode = 1;
 	    break;
+	case 't':
+	    {
+		char *endptr;
+		int num = strtol(optarg, &endptr, 10);
+		if (num > 0 && *endptr == '\0') {
+		    timeout = num;
+		} else {
+		    fprintf(stderr, "%s: invalid argument '%s' "
+			    "for option -t\n", progname, optarg);
+		    exit(EXIT_FAILURE);
+		}
+	    }
+	    break;
 	case 'h':
 	default: /* '?' */
-	    fprintf(stderr, "Usage: %s [-p port] [-q nqueries] "
+	    fprintf(stderr,
+		    "Usage: %s [-p port] [-q nqueries] "
+		    "[-t timeout] [-s] [-m] "
 		    "hostname...\n", progname);
 	    exit(EXIT_FAILURE);
 	}
     }
+    argc -= optind;
+    argv += optind;
 
-    for (i = optind; i < argc; i++) {
+    targets = xcalloc(argc+1, sizeof(target_t));
+    for (i = 0; i < argc; i++) {
         for (j = 0; ports[j]; j++) {
-	    expand(argv[i], ports[j]);
+	    expand(targets, argv[i], ports[j]);
 	}
     }
 
     for (i = 0; i < nqueries; i++) {
-	prepare();
-	collect();
+	prepare(targets);
+	collect(targets);
     }
-    report();
+    if (smode) {
+	sort(targets);
+    }
+    if (skmode) {
+	report_sk(targets);
+    } else {
+	report(targets);
+    }
 
-    if (endpoints) {
-        (void) free(endpoints);
+    for (tp = targets; target_valid(tp); tp++) {
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    if (ep->values) {
+		(void) free(ep->values);
+	    }
+	}
+	if (tp->endpoints) {
+	    (void) free(tp->endpoints);
+	}
+    }
+    if (targets) {
+	(void) free(targets);
     }
 
     if (usr_ports) {
