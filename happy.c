@@ -6,6 +6,8 @@
  * of possible endpoints. This tool is particularly useful to
  * determine whether happy eye ball applications will use IPv4 or IPv6
  * if both are available.
+ *
+ * Juergen Schoenwaelder <j.schoenwaelder@jacobs-university.de>
  */
 
 #define _POSIX_C_SOURCE 2
@@ -65,6 +67,8 @@ static int smode = 0;
 static int skmode = 0;
 static int nqueries = 3;
 static int timeout = 2;
+
+#define INVALID 0xffffffff
 
 static int target_valid(target_t *tp) {
     return (tp && tp->host && tp->port && tp->endpoints);
@@ -245,6 +249,7 @@ collect(target_t *targets)
 	    for (tp = targets; target_valid(tp); tp++) {
 		for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 		    if (ep->socket) {
+			ep->values[ep->cnt] = INVALID;
 			ep->cnt++;
 			(void) close(ep->socket);
 			ep->socket = 0;
@@ -267,13 +272,16 @@ collect(target_t *targets)
 			exit(EXIT_FAILURE);
 		    }
 		    (void) close(ep->socket);
-		    ep->cnt++;
 		    ep->socket = 0;
 		    if (! soerror) {
 			/* calculate stats */
 			timersub(&tv, &ep->tvs, &td);
-			ep->values[ep->cnt-1] = td.tv_sec*1000000 + td.tv_usec;
-			ep->sum += ep->values[ep->cnt-1];
+			ep->values[ep->cnt] = td.tv_sec*1000000 + td.tv_usec;
+			ep->sum += ep->values[ep->cnt];
+			ep->cnt++;
+		    } else {
+			ep->values[ep->cnt] = INVALID;
+			ep->cnt++;
 		    }
 		}
 	    }
@@ -359,9 +367,13 @@ report(target_t *targets)
 	    } else {
 		printf("%*s", (42-len), "");
 		for (i = 0; i < ep->cnt; i++) {
-		    printf(" %4u.%03u",
-			   ep->values[i] / 1000,
-			   ep->values[i] % 1000);
+		    if (ep->values[i] != INVALID) {
+			printf(" %4u.%03u",
+			       ep->values[i] / 1000,
+			       ep->values[i] % 1000);
+		    } else {
+			printf("     *   ");
+		    }
 		}
 		printf("\n");
 	    }
@@ -405,7 +417,11 @@ report_sk(target_t *targets)
 	    printf("HAPPY.0;%lu;%s;%s;%s;%s",
 		   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
 	    for (i = 0; i < ep->cnt; i++) {
-		printf(";%u", ep->values[i]);
+		if (ep->values[i] != INVALID) {
+		    printf(";%u", ep->values[i]);
+		} else {
+		    printf(";");
+		}
 	    }
 	    printf("\n");
 	}
@@ -475,7 +491,8 @@ main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    targets = xcalloc(argc+1, sizeof(target_t));
+    for (j = 0; ports[j]; j++) ;
+    targets = xcalloc(1 + argc*j, sizeof(target_t));
     for (i = 0; i < argc; i++) {
         for (j = 0; ports[j]; j++) {
 	    expand(targets, argv[i], ports[j]);
