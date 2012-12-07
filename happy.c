@@ -50,6 +50,7 @@ typedef struct endpoint {
     struct timeval tvs;
 
     unsigned int sum;
+    unsigned int idx;
     unsigned int cnt;
     unsigned int *values;
 } endpoint_t;
@@ -249,8 +250,8 @@ collect(target_t *targets)
 	    for (tp = targets; target_valid(tp); tp++) {
 		for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 		    if (ep->socket) {
-			ep->values[ep->cnt] = INVALID;
-			ep->cnt++;
+			ep->values[ep->idx] = INVALID;
+			ep->idx++;
 			(void) close(ep->socket);
 			ep->socket = 0;
 		    }
@@ -276,12 +277,13 @@ collect(target_t *targets)
 		    if (! soerror) {
 			/* calculate stats */
 			timersub(&tv, &ep->tvs, &td);
-			ep->values[ep->cnt] = td.tv_sec*1000000 + td.tv_usec;
-			ep->sum += ep->values[ep->cnt];
+			ep->values[ep->idx] = td.tv_sec*1000000 + td.tv_usec;
+			ep->sum += ep->values[ep->idx];
 			ep->cnt++;
+			ep->idx++;
 		    } else {
-			ep->values[ep->cnt] = INVALID;
-			ep->cnt++;
+			ep->values[ep->idx] = INVALID;
+			ep->idx++;
 		    }
 		}
 	    }
@@ -361,22 +363,17 @@ report(target_t *targets)
 		continue;
 	    }
 	    printf(" %s%n", host, &len);
-	    if (! ep->cnt) {
-		printf("%*s%8s\n", 
-		       (42-len), "", "-");
-	    } else {
-		printf("%*s", (42-len), "");
-		for (i = 0; i < ep->cnt; i++) {
-		    if (ep->values[i] != INVALID) {
-			printf(" %4u.%03u",
-			       ep->values[i] / 1000,
-			       ep->values[i] % 1000);
-		    } else {
-			printf("     *   ");
-		    }
+	    printf("%*s", (42-len), "");
+	    for (i = 0; i < ep->idx; i++) {
+		if (ep->values[i] != INVALID) {
+		    printf(" %4u.%03u",
+			   ep->values[i] / 1000,
+			   ep->values[i] % 1000);
+		} else {
+		    printf("     *   ");
 		}
-		printf("\n");
 	    }
+	    printf("\n");
 	}
     }
 }
@@ -416,7 +413,7 @@ report_sk(target_t *targets)
 
 	    printf("HAPPY.0;%lu;%s;%s;%s;%s",
 		   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
-	    for (i = 0; i < ep->cnt; i++) {
+	    for (i = 0; i < ep->idx; i++) {
 		if (ep->values[i] != INVALID) {
 		    printf(";%u", ep->values[i]);
 		} else {
