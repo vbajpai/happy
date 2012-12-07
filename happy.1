@@ -1,0 +1,50 @@
+.\" This is a comment
+.\" Contact Owen@thelinuxblog.com
+.TH man 1 "7 December 2012" ".1" "Man Page Example"
+.SH NAME
+happy \- happy eyeballs probing tool
+.SH SYNOPSIS
+.BR happy " [" \-ms "] [" "\-p port" "] [" "\-q nqueries" "] [" "\-t timeout" "] " target "..."
+.SH DESCRIPTION
+.I happy
+is a simple TCP happy eyeballs probing tool. It uses non-blocking
+connect() calls to establish connections concurrently to a number of
+possible endpoints. This tool is particularly useful to determine
+whether happy eyeball applications will use IPv4 or IPv6 if both are
+available.
+.PP
+A common usage is in combination with watch(1):
+.PP
+watch -d -- happy -s www.google.com www.bing.com www.yahoo.com
+.SH OPTIONS
+.TP
+.B -m
+Produce more compact machine readable output.
+.TP
+.B -s
+Sort the results for all endpoints of a given target. Sorting is based
+on the average time it took to establish TCP connections. (Failed attempts
+are ignored.)
+.TP
+.BI \-p " port"
+Establish TCP connections to the given
+.I port
+instead of the default port 80. This option can be used multiple times
+to probe multiple port simultaneously.
+.TP
+.BI \-q " nqueries"
+Run
+.I nqueries
+attempts to establish a TCP connection for each IP address of the
+given targets. The default is 3 attempts.
+.TP
+.BI \-t " timeout"
+Set the timeout to
+.I timeout
+seconds. The default is 2 seconds.
+.SH SEE ALSO
+watch (1), RFC 6555
+.SH BUGS
+Likely, but we will try to fix them if we can reproduce them.
+.SH AUTHOR
+Juergen Schoenwaelder <j.schoenwaelder@jacobs-university.de>
