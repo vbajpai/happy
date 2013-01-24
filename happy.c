@@ -68,6 +68,7 @@ static int smode = 0;
 static int skmode = 0;
 static int nqueries = 3;
 static int timeout = 2;
+static struct timespec delay = { 0, 25 * 1000000 };
 
 #define INVALID 0xffffffff
 
@@ -182,7 +183,13 @@ prepare(target_t *targets)
 		(void) close(ep->socket);
 		continue;
 	    }
-	    
+
+	    if (delay.tv_sec == 0 && delay.tv_nsec == 0) {
+		if (nanosleep(&delay, NULL) == -1) {
+		    fprintf(stderr, "%s: nanosleep: %s (skipping)\n",
+			    progname, strerror(errno));
+		}
+	    }
 	    
 	    if (connect(ep->socket, 
 			(struct sockaddr *) &ep->addr,
@@ -433,11 +440,26 @@ main(int argc, char *argv[])
     char *def_ports[] = { "80", 0 };
     char **usr_ports = NULL;
     char **ports = def_ports;
+    char *file = NULL;
     target_t *tp;
     endpoint_t *ep;
 
-    while ((c = getopt(argc, argv, "p:q:hmst:")) != -1) {
+    while ((c = getopt(argc, argv, "d:p:q:f:hmst:")) != -1) {
 	switch (c) {
+	case 'd':
+	    {
+	        char *endptr;
+		int num = strtol(optarg, &endptr, 10);
+		if (num >= 0 && num < 1000 && *endptr == '\0') {
+		    delay.tv_sec = 0;
+		    delay.tv_nsec = num * 1000000;
+		} else {
+		    fprintf(stderr, "%s: invalid argument '%s' "
+			    "for option -d\n", progname, optarg);
+		    exit(EXIT_FAILURE);
+		}
+	    }
+	    break;
 	case 'p':
 	    if (! usr_ports) {
 		usr_ports = xcalloc(argc, sizeof(char *));
@@ -457,6 +479,12 @@ main(int argc, char *argv[])
 		    exit(EXIT_FAILURE);
 		}
 	    }
+	    break;
+	case 'f':
+	    file = optarg;
+	    fprintf(stderr, "%s: option -f not implemented yet",
+		    progname);
+	    exit(EXIT_FAILURE);
 	    break;
 	case 'm':
 	    skmode = 1;
@@ -480,7 +508,7 @@ main(int argc, char *argv[])
 	case 'h':
 	default: /* '?' */
 	    fprintf(stderr,
-		    "Usage: %s [-p port] [-q nqueries] "
+		    "Usage: %s [-p port] [-q nqueries] [-f file] [-d delay ] "
 		    "[-t timeout] [-s] [-m] "
 		    "hostname...\n", progname);
 	    exit(EXIT_FAILURE);
@@ -488,11 +516,11 @@ main(int argc, char *argv[])
     }
     argc -= optind;
     argv += optind;
-
+    
     for (j = 0; ports[j]; j++) ;
     targets = xcalloc(1 + argc*j, sizeof(target_t));
     for (i = 0; i < argc; i++) {
-        for (j = 0; ports[j]; j++) {
+	for (j = 0; ports[j]; j++) {
 	    expand(targets, argv[i], ports[j]);
 	}
     }

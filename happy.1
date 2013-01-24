@@ -4,7 +4,7 @@
 .SH NAME
 happy \- happy eyeballs probing tool
 .SH SYNOPSIS
-.BR happy " [" \-ms "] [" "\-p port" "] [" "\-q nqueries" "] [" "\-t timeout" "] " target "..."
+.BR happy " [" \-ms "] [" "\-p port" "] [" "\-q nqueries" "] [" "\-t timeout" "] [" "\-d delay" "] " target "..."
 .SH DESCRIPTION
 .I happy
 is a simple TCP happy eyeballs probing tool. It uses non-blocking
@@ -42,8 +42,19 @@ given targets. The default is 3 attempts.
 Set the timeout to
 .I timeout
 seconds. The default is 2 seconds.
+.TP
+.BI \-t " delay"
+Set the delay between TCP connection attempts to
+.I delay
+milliseconds. The default is 25 milliseconds.
 .SH SEE ALSO
 watch (1), RFC 6555
+.SH LIMITATIONS
+The tool does not check whether the endpoints of a given target all
+provide the same service. Hence, it is possible to impact the results
+by setting up 'fake' servers that do not provide the service tested and
+which are designed and deployed with the only purpose to provide fast
+connection setup times.
 .SH BUGS
 Likely, but we will try to fix them if we can reproduce them.
 .SH AUTHOR
