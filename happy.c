@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <time.h>
+#include <ctype.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -94,6 +95,44 @@ xcalloc(size_t nmemb, size_t size)
 	exit(EXIT_FAILURE);
     }
     return p;
+}
+
+/*
+ * Trim trailing and leading white space from a string. Note, this
+ * version modifies the original string.
+ */
+
+static char *
+trim(char * s)
+{
+    char * p = s;
+    int l = strlen(p);
+
+    while(isspace(p[l-1]) && l) p[--l] = 0;
+    while(*p && isspace(*p) && l) ++p, --l;
+
+    return p;
+}
+
+/*
+ * Append a new target to our list of targets. We keep track of
+ * the last target added so that we do not have to search for the
+ * end of the list.
+ */
+
+static void
+append(target_t *target)
+{
+    static target_t *last_target = NULL;
+
+    if (target) {
+	if (! targets) {
+	    targets = target;
+	} else {
+	    last_target->next = target;
+	}
+	last_target = target;
+    }
 }
 
 /*
@@ -461,6 +500,51 @@ cleanup(target_t *targets)
 }
 
 /*
+ * Read a list of targets from a file or standard input if the
+ * filename is '-'.
+ */
+
+static void
+import(const char *filename, char **ports)
+{
+    FILE *in;
+    char line[512], *host;
+    int j;
+
+    if (! filename || strcmp(filename, "-") == 0) {
+        clearerr(stdin);
+        in = stdin;
+    } else {
+        in = fopen(filename, "r");
+        if (! in) {
+	    fprintf(stderr, "%s: fopen: %s\n",
+		    progname, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+    
+    while (fgets(line, sizeof(line), in)) {
+	host = trim(line);
+	if (*host) {
+	    for (j = 0; ports[j]; j++) {
+		append(expand(host, ports[j]));
+	    }
+	}
+    }
+    
+    if (ferror(in)) {
+	fprintf(stderr, "%s: ferror: %s\n",
+		progname, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if (in != stdin) {
+        fclose(in);
+    }
+
+}
+
+/*
  * Here is where the fun starts. Parse the options and run the
  * program in the requested mode.
  */
@@ -472,8 +556,6 @@ main(int argc, char *argv[])
     char *def_ports[] = { "80", 0 };
     char **usr_ports = NULL;
     char **ports = def_ports;
-    char *file = NULL;
-    target_t *tp, *lp;
 
     while ((c = getopt(argc, argv, "d:p:q:f:hmst:")) != -1) {
 	switch (c) {
@@ -512,10 +594,7 @@ main(int argc, char *argv[])
 	    }
 	    break;
 	case 'f':
-	    file = optarg;
-	    fprintf(stderr, "%s: option -f not implemented yet",
-		    progname);
-	    exit(EXIT_FAILURE);
+	    import(optarg, ports);
 	    break;
 	case 'm':
 	    skmode = 1;
@@ -539,8 +618,8 @@ main(int argc, char *argv[])
 	case 'h':
 	default: /* '?' */
 	    fprintf(stderr,
-		    "Usage: %s [-p port] [-q nqueries] [-f file] [-d delay ] "
-		    "[-t timeout] [-s] [-m] "
+		    "Usage: %s [-p port] [-q nqueries] "
+		    "[-t timeout] [-d delay ] [-f file] [-s] [-m] "
 		    "hostname...\n", progname);
 	    exit(EXIT_FAILURE);
 	}
@@ -550,33 +629,27 @@ main(int argc, char *argv[])
     
     for (i = 0; i < argc; i++) {
 	for (j = 0; ports[j]; j++) {
-	    if ((tp = expand(argv[i], ports[j])) == NULL) {
-		continue;
-	    }
-	    if (! targets) {
-		targets = tp;
-	    } else {
-		lp->next = tp;
-	    }
-	    lp = tp;
+	    append(expand(argv[i], ports[j]));
 	}
     }
 
-    for (i = 0; i < nqueries; i++) {
-	prepare(targets);
-	collect(targets);
+    if (targets) {
+	for (i = 0; i < nqueries; i++) {
+	    prepare(targets);
+	    collect(targets);
+	}
+	if (smode) {
+	    sort(targets);
+	}
+	if (skmode) {
+	    report_sk(targets);
+	} else {
+	    report(targets);
+	}
+	
+	cleanup(targets);
     }
-    if (smode) {
-	sort(targets);
-    }
-    if (skmode) {
-	report_sk(targets);
-    } else {
-	report(targets);
-    }
-
-    cleanup(targets);
-
+	
     if (usr_ports) {
 	(void) free(usr_ports);
     }
