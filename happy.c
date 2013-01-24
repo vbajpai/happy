@@ -56,10 +56,11 @@ typedef struct endpoint {
 } endpoint_t;
 
 typedef struct target {
-    const char *host;
-    const char *port;
+    char *host;
+    char *port;
     int num_endpoints;
     endpoint_t *endpoints;
+    struct target *next;
 } target_t;
 
 static target_t *targets = NULL;
@@ -100,16 +101,16 @@ xcalloc(size_t nmemb, size_t size)
  * create the vector of endpoints we are going to probe subsequently.
  */
 
-static void
-expand(target_t *targets, const char *host, const char *port)
+static target_t*
+expand(const char *host, const char *port)
 {
     struct addrinfo hints, *ai_list, *ai;
     int n;
     target_t *tp;
     endpoint_t *ep;
 
-    assert(targets && host && port);
-    
+    assert(host && port);
+
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -118,15 +119,15 @@ expand(target_t *targets, const char *host, const char *port)
     if (n != 0) {
 	fprintf(stderr, "%s: %s port %s: %s (skipping)\n",
 		progname, host, port, gai_strerror(n));
-	return;
+	return NULL;
     }
 
-    for (tp = targets; target_valid(tp); tp++) ;
+    tp = xcalloc(1, sizeof(target_t));
+    tp->host = strdup(host);
+    tp->port = strdup(port);
 
     for (ai = ai_list, tp->num_endpoints = 0;
 	 ai; ai = ai->ai_next, tp->num_endpoints++) ;
-    tp->host = host;
-    tp->port = port;
     tp->endpoints = xcalloc(1 + tp->num_endpoints, sizeof(endpoint_t));
 
     for (ai = ai_list, ep = tp->endpoints; ai; ai = ai->ai_next, ep++) {
@@ -139,11 +140,14 @@ expand(target_t *targets, const char *host, const char *port)
     }
     
     freeaddrinfo(ai_list);
+
+    return tp;
 }
 
 /*
  * For all endpoints, create a socket and start a non-blocking
- * connect().
+ * connect(). In order to avoid creating bursts of TCP SYN packets, we
+ * take a short nap before each connect() call.
  */
 
 static void
@@ -159,7 +163,7 @@ prepare(target_t *targets)
         return;
     }
 
-    for (tp = targets; target_valid(tp); tp++) {
+    for (tp = targets; target_valid(tp); tp = tp->next) {
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 	    ep->socket = socket(ep->family, ep->socktype, ep->protocol);
 	    if (ep->socket < 0) {
@@ -185,10 +189,7 @@ prepare(target_t *targets)
 	    }
 
 	    if (delay.tv_sec == 0 && delay.tv_nsec == 0) {
-		if (nanosleep(&delay, NULL) == -1) {
-		    fprintf(stderr, "%s: nanosleep: %s (skipping)\n",
-			    progname, strerror(errno));
-		}
+		(void) nanosleep(&delay, NULL);
 	    }
 	    
 	    if (connect(ep->socket, 
@@ -229,7 +230,7 @@ collect(target_t *targets)
     while (1) {
 
 	FD_ZERO(&fdset);
-	for (tp = targets, max = -1; target_valid(tp); tp++) {
+	for (tp = targets, max = -1; target_valid(tp); tp = tp->next) {
 	    for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 		if (ep->socket) {
 		    FD_SET(ep->socket, &fdset);
@@ -255,7 +256,7 @@ collect(target_t *targets)
 	
 	if (rc == 0) {
 	    /* timeout occured - fail all pending attempts and quit */
-	    for (tp = targets; target_valid(tp); tp++) {
+	    for (tp = targets; target_valid(tp); tp = tp->next) {
 		for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 		    if (ep->socket) {
 			ep->values[ep->idx] = INVALID;
@@ -270,7 +271,7 @@ collect(target_t *targets)
     
 	(void) gettimeofday(&tv, NULL);
 	
-	for (tp = targets; target_valid(tp); tp++) {
+	for (tp = targets; target_valid(tp); tp = tp->next) {
 	    for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 		if (ep->socket && FD_ISSET(ep->socket, &fdset)) {
 		    
@@ -330,7 +331,7 @@ sort(target_t *targets)
 
     assert(targets);
 
-    for (tp = targets; target_valid(tp); tp++) {
+    for (tp = targets; target_valid(tp); tp = tp->next) {
 	if (tp->endpoints) {
 	    qsort(tp->endpoints, tp->num_endpoints, sizeof(*ep), cmp);
 	}
@@ -354,7 +355,7 @@ report(target_t *targets)
 
     assert(targets);
 
-    for (tp = targets; target_valid(tp); tp++) {
+    for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	printf("%s%s:%s\n",
 	       (tp != targets) ? "\n" : "", tp->host, tp->port);
@@ -405,7 +406,7 @@ report_sk(target_t *targets)
     
     now = time(NULL);
 
-    for (tp = targets; target_valid(tp); tp++) {
+    for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 	
@@ -433,6 +434,37 @@ report_sk(target_t *targets)
     }
 }
 
+/*
+ * Cleanup targets and release all target data structures.
+ */
+
+static void
+cleanup(target_t *targets)
+{
+    target_t *tp, *np;
+    endpoint_t *ep;
+
+    assert(targets);
+
+    for (tp = targets; target_valid(tp); tp = np) {
+	np = tp->next;
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    if (ep->values) {
+		(void) free(ep->values);
+	    }
+	}
+	if (tp->endpoints) (void) free(tp->endpoints);
+	if (tp->host) (void) free(tp->host);
+	if (tp->port) (void) free(tp->port);
+	(void) free(tp);
+    }
+}
+
+/*
+ * Here is where the fun starts. Parse the options and run the
+ * program in the requested mode.
+ */
+
 int
 main(int argc, char *argv[])
 {
@@ -441,8 +473,7 @@ main(int argc, char *argv[])
     char **usr_ports = NULL;
     char **ports = def_ports;
     char *file = NULL;
-    target_t *tp;
-    endpoint_t *ep;
+    target_t *tp, *lp;
 
     while ((c = getopt(argc, argv, "d:p:q:f:hmst:")) != -1) {
 	switch (c) {
@@ -517,11 +548,17 @@ main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
     
-    for (j = 0; ports[j]; j++) ;
-    targets = xcalloc(1 + argc*j, sizeof(target_t));
     for (i = 0; i < argc; i++) {
 	for (j = 0; ports[j]; j++) {
-	    expand(targets, argv[i], ports[j]);
+	    if ((tp = expand(argv[i], ports[j])) == NULL) {
+		continue;
+	    }
+	    if (! targets) {
+		targets = tp;
+	    } else {
+		lp->next = tp;
+	    }
+	    lp = tp;
 	}
     }
 
@@ -538,19 +575,7 @@ main(int argc, char *argv[])
 	report(targets);
     }
 
-    for (tp = targets; target_valid(tp); tp++) {
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	    if (ep->values) {
-		(void) free(ep->values);
-	    }
-	}
-	if (tp->endpoints) {
-	    (void) free(tp->endpoints);
-	}
-    }
-    if (targets) {
-	(void) free(targets);
-    }
+    cleanup(targets);
 
     if (usr_ports) {
 	(void) free(usr_ports);
