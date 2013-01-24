@@ -1,10 +1,10 @@
 /*
  * happy.c --
  *
- * A simple TCP happy eye balls probing tool. It uses non-blocking
+ * A simple TCP happy eyeballs probing tool. It uses non-blocking
  * connect() calls to establish connections concurrently to a number
  * of possible endpoints. This tool is particularly useful to
- * determine whether happy eye ball applications will use IPv4 or IPv6
+ * determine whether happy eyeball applications will use IPv4 or IPv6
  * if both are available.
  *
  * Juergen Schoenwaelder <j.schoenwaelder@jacobs-university.de>
@@ -170,7 +170,8 @@ prepare(target_t *targets)
 		default:
 		    fprintf(stderr, "%s: socket: %s (skipping)\n",
 			    progname, strerror(errno));
-		continue;
+		    ep->socket = 0;
+		    continue;
 		}
 	    }
 	    
