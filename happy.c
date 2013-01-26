@@ -69,8 +69,8 @@ static target_t *targets = NULL;
 static int smode = 0;
 static int skmode = 0;
 static int nqueries = 3;
-static int timeout = 2;
-static struct timespec delay = { 0, 25 * 1000000 };
+static int timeout = 2;			/* in s */
+static unsigned int delay = 25;		/* in ms */
 
 #define INVALID 0xffffffff
 
@@ -227,8 +227,11 @@ prepare(target_t *targets)
 		continue;
 	    }
 
-	    if (delay.tv_sec == 0 && delay.tv_nsec == 0) {
-		(void) nanosleep(&delay, NULL);
+	    if (delay) {
+		struct timeval timeout;
+		timeout.tv_sec = 0;
+		timeout.tv_usec = delay * 1000;
+		(void) select(0, NULL, NULL, NULL, &timeout);
 	    }
 	    
 	    if (connect(ep->socket, 
@@ -564,8 +567,7 @@ main(int argc, char *argv[])
 	        char *endptr;
 		int num = strtol(optarg, &endptr, 10);
 		if (num >= 0 && num < 1000 && *endptr == '\0') {
-		    delay.tv_sec = 0;
-		    delay.tv_nsec = num * 1000000;
+		    delay = num;
 		} else {
 		    fprintf(stderr, "%s: invalid argument '%s' "
 			    "for option -d\n", progname, optarg);
