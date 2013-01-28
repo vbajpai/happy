@@ -30,6 +30,7 @@
 #include <netdb.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 
 static const char *progname = "happy";
 
@@ -112,6 +113,66 @@ trim(char * s)
     while(*p && isspace(*p) && l) ++p, --l;
 
     return p;
+}
+
+/*
+ * If the file stream is associated with a regular file, lock the file
+ * in order coordinate writes to a common file from multiple happy
+ * instances. This is useful if, for example, multiple happy instances
+ * try to append results to a common file.
+ */
+
+static void
+lock(FILE *f)
+{
+    int fd;
+    struct stat buf;
+    static struct flock lock;
+
+    assert(f);
+
+    lock.l_type = F_WRLCK;
+    lock.l_start = 0;
+    lock.l_whence = SEEK_END;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    fd = fileno(f);
+    if ((fstat(fd, &buf) == 0) && S_ISREG(buf.st_mode)) {
+	if (fcntl(fd, F_SETLKW, &lock) == -1) {
+	    fprintf(stderr, "%s: fcntl: %s (ignored)\n",
+		    progname, strerror(errno));
+	}
+    }
+}
+
+/*
+ * If the file stream is associated with a regular file, unlock the
+ * file (which presumably has previously been locked).
+ */
+
+static void
+unlock(FILE *f)
+{
+    int fd;
+    struct stat buf;
+    static struct flock lock;
+
+    assert(f);
+
+    lock.l_type = F_UNLCK;
+    lock.l_start = 0;
+    lock.l_whence = SEEK_END;
+    lock.l_len = 0;
+    lock.l_pid = getpid();
+
+    fd = fileno(f);
+    if ((fstat(fd, &buf) == 0) && S_ISREG(buf.st_mode)) {
+	if (fcntl(fd, F_SETLKW, &lock) == -1) {
+	    fprintf(stderr, "%s: fcntl: %s (ignored)\n",
+		    progname, strerror(errno));
+	}
+    }
 }
 
 /*
@@ -643,12 +704,13 @@ main(int argc, char *argv[])
 	if (smode) {
 	    sort(targets);
 	}
+	lock(stdout);
 	if (skmode) {
 	    report_sk(targets);
 	} else {
 	    report(targets);
 	}
-	
+	unlock(stdout);
 	cleanup(targets);
     }
 	
