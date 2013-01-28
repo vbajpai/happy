@@ -69,7 +69,7 @@ static target_t *targets = NULL;
 static int smode = 0;
 static int skmode = 0;
 static int nqueries = 3;
-static int timeout = 2;			/* in s */
+static int timeout = 2000;		/* in ms */
 static unsigned int delay = 25;		/* in ms */
 
 #define INVALID 0xffffffff
@@ -229,8 +229,8 @@ prepare(target_t *targets)
 
 	    if (delay) {
 		struct timeval timeout;
-		timeout.tv_sec = 0;
-		timeout.tv_usec = delay * 1000;
+		timeout.tv_sec = delay / 1000;
+		timeout.tv_usec = delay % 1000;
 		(void) select(0, NULL, NULL, NULL, &timeout);
 	    }
 	    
@@ -285,8 +285,8 @@ collect(target_t *targets)
 	}
 	
 	if (timeout) {
-	    to.tv_sec = timeout;
-	    to.tv_usec = 0;
+	    to.tv_sec = timeout / 1000;
+	    to.tv_usec = timeout % 1000;
 	}
 	
 	rc = select(1 + max, NULL, &fdset, NULL, timeout ? &to : NULL);
@@ -566,7 +566,7 @@ main(int argc, char *argv[])
 	    {
 	        char *endptr;
 		int num = strtol(optarg, &endptr, 10);
-		if (num >= 0 && num < 1000 && *endptr == '\0') {
+		if (num >= 0 && *endptr == '\0') {
 		    delay = num;
 		} else {
 		    fprintf(stderr, "%s: invalid argument '%s' "
