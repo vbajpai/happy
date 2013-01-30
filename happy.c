@@ -291,7 +291,7 @@ prepare(target_t *targets)
 	    if (delay) {
 		struct timeval timeout;
 		timeout.tv_sec = delay / 1000;
-		timeout.tv_usec = delay % 1000;
+		timeout.tv_usec = (delay % 1000) * 1000;
 		(void) select(0, NULL, NULL, NULL, &timeout);
 	    }
 	    
@@ -347,7 +347,7 @@ collect(target_t *targets)
 	
 	if (timeout) {
 	    to.tv_sec = timeout / 1000;
-	    to.tv_usec = timeout % 1000;
+	    to.tv_usec = (timeout % 1000) * 1000;
 	}
 	
 	rc = select(1 + max, NULL, &fdset, NULL, timeout ? &to : NULL);
