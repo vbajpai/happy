@@ -245,15 +245,99 @@ expand(const char *host, const char *port)
 }
 
 /*
+ * Generate the file descriptor set for all sockets with a pending
+ * asynchronous connect().
+ */
+
+static int
+generate_fdset(target_t *targets, fd_set *fdset)
+{
+    int max;
+    target_t *tp;
+    endpoint_t *ep;
+    
+    FD_ZERO(fdset);
+    for (tp = targets, max = -1; target_valid(tp); tp = tp->next) {
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    if (ep->socket) {
+		FD_SET(ep->socket, fdset);
+		if (ep->socket > max) max = ep->socket;
+	    }
+	}
+    }
+
+    return max;
+}
+
+/*
+ * Go through all endpoints and check which ones have expired, for
+ * whic ones the asynchronous connect() has finished and update the
+ * stats accordingly.
+ */
+
+static void
+update(target_t *targets, fd_set *fdset)
+{
+    struct timeval tv, td;
+    int soerror;
+    socklen_t soerrorlen = sizeof(soerror);
+    target_t *tp;
+    endpoint_t *ep;
+    unsigned int us;
+
+    assert(targets && fdset);
+    
+    (void) gettimeofday(&tv, NULL);
+    
+    for (tp = targets; target_valid(tp); tp = tp->next) {
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    /* calculate time since we started the connect */
+	    timersub(&tv, &ep->tvs, &td);
+	    us = td.tv_sec*1000000 + td.tv_usec;
+	    if (ep->socket && us >= timeout * 1000) {
+		ep->values[ep->idx] = INVALID;
+		ep->idx++;
+		(void) close(ep->socket);
+		ep->socket = 0;
+		continue;
+	    }
+	    if (ep->socket && FD_ISSET(ep->socket, fdset)) {
+		
+		if (-1 == getsockopt(ep->socket, SOL_SOCKET, SO_ERROR,
+				     &soerror, &soerrorlen)) {
+		    fprintf(stderr, "%s: getsockopt: %s\n",
+			    progname, strerror(errno));
+		    exit(EXIT_FAILURE);
+		}
+		if (! soerror) {
+		    ep->values[ep->idx] = us;
+		    ep->sum += us;
+		    ep->cnt++;
+		    ep->idx++;
+		} else {
+		    ep->values[ep->idx] = INVALID;
+		    ep->idx++;
+		}
+		(void) close(ep->socket);
+		ep->socket = 0;
+	    }
+	}
+    }
+}
+
+/*
  * For all endpoints, create a socket and start a non-blocking
- * connect(). In order to avoid creating bursts of TCP SYN packets, we
- * take a short nap before each connect() call.
+ * connect(). In order to avoid creating bursts of TCP SYN packets,
+ * we take a short nap before each connect() call. Note that
+ * asynchronous connect()s might actually succeed during the
+ * short nap.
  */
 
 static void
 prepare(target_t *targets)
 {
-    int flags;
+    int rc, flags;
+    fd_set fdset;
     target_t *tp;
     endpoint_t *ep;
 
@@ -265,6 +349,25 @@ prepare(target_t *targets)
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+
+	    if (delay) {
+		int max;
+		struct timeval to;
+
+		max = generate_fdset(targets, &fdset);
+		if (max > -1) {
+		    to.tv_sec = delay / 1000;
+		    to.tv_usec = (delay % 1000) * 1000;
+		    rc = select(1 + max, NULL, &fdset, NULL, &to);
+		    if (rc == -1) {
+			fprintf(stderr, "%s: select failed: %s\n",
+				progname, strerror(errno));
+			exit(EXIT_FAILURE);
+		    }
+		    update(targets, &fdset);
+		}
+	    }
+
 	    ep->socket = socket(ep->family, ep->socktype, ep->protocol);
 	    if (ep->socket < 0) {
 		switch (errno) {
@@ -288,13 +391,6 @@ prepare(target_t *targets)
 		continue;
 	    }
 
-	    if (delay) {
-		struct timeval timeout;
-		timeout.tv_sec = delay / 1000;
-		timeout.tv_usec = (delay % 1000) * 1000;
-		(void) select(0, NULL, NULL, NULL, &timeout);
-	    }
-	    
 	    if (connect(ep->socket, 
 			(struct sockaddr *) &ep->addr,
 			ep->addrlen) == -1) {
@@ -322,25 +418,13 @@ collect(target_t *targets)
 {
     int rc, max;
     fd_set fdset;
-    struct timeval tv, td, to;
-    int soerror;
-    socklen_t soerrorlen = sizeof(soerror);
-    target_t *tp;
-    endpoint_t *ep;
+    struct timeval to;
 
     assert(targets);
 
     while (1) {
 
-	FD_ZERO(&fdset);
-	for (tp = targets, max = -1; target_valid(tp); tp = tp->next) {
-	    for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-		if (ep->socket) {
-		    FD_SET(ep->socket, &fdset);
-		    if (ep->socket > max) max = ep->socket;
-		}
-	    }
-	}
+	max = generate_fdset(targets, &fdset);
 	if (max == -1) {
 	    break;
 	}
@@ -357,49 +441,7 @@ collect(target_t *targets)
 	    exit(EXIT_FAILURE);
 	}
 	
-	if (rc == 0) {
-	    /* timeout occured - fail all pending attempts and quit */
-	    for (tp = targets; target_valid(tp); tp = tp->next) {
-		for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-		    if (ep->socket) {
-			ep->values[ep->idx] = INVALID;
-			ep->idx++;
-			(void) close(ep->socket);
-			ep->socket = 0;
-		    }
-		}
-	    }
-	    return;
-	}
-    
-	(void) gettimeofday(&tv, NULL);
-	
-	for (tp = targets; target_valid(tp); tp = tp->next) {
-	    for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-		if (ep->socket && FD_ISSET(ep->socket, &fdset)) {
-		    
-		    if (-1 == getsockopt(ep->socket, SOL_SOCKET, SO_ERROR,
-					 &soerror, &soerrorlen)) {
-			fprintf(stderr, "%s: getsockopt: %s\n",
-				progname, strerror(errno));
-			exit(EXIT_FAILURE);
-		    }
-		    (void) close(ep->socket);
-		    ep->socket = 0;
-		    if (! soerror) {
-			/* calculate stats */
-			timersub(&tv, &ep->tvs, &td);
-			ep->values[ep->idx] = td.tv_sec*1000000 + td.tv_usec;
-			ep->sum += ep->values[ep->idx];
-			ep->cnt++;
-			ep->idx++;
-		    } else {
-			ep->values[ep->idx] = INVALID;
-			ep->idx++;
-		    }
-		}
-	    }
-	}
+	update(targets, &fdset);
     }
 }
     
