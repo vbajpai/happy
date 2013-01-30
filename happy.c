@@ -340,6 +340,7 @@ prepare(target_t *targets)
     fd_set fdset;
     target_t *tp;
     endpoint_t *ep;
+    struct timeval dts, dtn, dtd, dd;
 
     assert(targets);
 
@@ -347,17 +348,29 @@ prepare(target_t *targets)
         return;
     }
 
+    dd.tv_sec = delay / 1000;
+    dd.tv_usec = (delay % 1000) * 1000;
+
     for (tp = targets; target_valid(tp); tp = tp->next) {
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 
 	    if (delay) {
 		int max;
 		struct timeval to;
-
-		max = generate_fdset(targets, &fdset);
-		if (max > -1) {
-		    to.tv_sec = delay / 1000;
-		    to.tv_usec = (delay % 1000) * 1000;
+		
+		(void) gettimeofday(&dts, NULL);
+		
+		while (1) {
+		    max = generate_fdset(targets, &fdset);
+		    
+		    (void) gettimeofday(&dtn, NULL);
+		    timersub(&dtn, &dts, &dtd);
+		    if (timercmp(&dd, &dtd, <)) {
+			break;
+		    }
+		    
+		    timeradd(&dts, &dd, &to);
+		    timersub(&to, &dtn, &to);
 		    rc = select(1 + max, NULL, &fdset, NULL, &to);
 		    if (rc == -1) {
 			fprintf(stderr, "%s: select failed: %s\n",
