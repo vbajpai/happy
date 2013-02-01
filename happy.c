@@ -197,8 +197,9 @@ append(target_t *target)
 }
 
 /*
- * Resolve the host name and if successful establish a new target and
- * create the vector of endpoints we are going to probe subsequently.
+ * Resolve the host and port name and if successful establish a new
+ * target and create the vector of endpoints we are going to probe
+ * subsequently.
  */
 
 static target_t*
@@ -217,8 +218,8 @@ expand(const char *host, const char *port)
 
     n = getaddrinfo(host, port, &hints, &ai_list);
     if (n != 0) {
-	fprintf(stderr, "%s: %s port %s: %s (skipping)\n",
-		progname, host, port, gai_strerror(n));
+	fprintf(stderr, "%s: %s (skipping %s port %s)\n",
+		progname, gai_strerror(n), host, port);
 	return NULL;
     }
 
@@ -270,8 +271,8 @@ generate_fdset(target_t *targets, fd_set *fdset)
 }
 
 /*
- * Go through all endpoints and check which ones have expired, for
- * whic ones the asynchronous connect() has finished and update the
+ * Go through all endpoints and check which ones have timed out, for
+ * which ones the asynchronous connect() has finished and update the
  * stats accordingly.
  */
 
@@ -389,8 +390,8 @@ prepare(target_t *targets)
 		    continue;
 		    
 		default:
-		    fprintf(stderr, "%s: socket: %s (skipping)\n",
-			    progname, strerror(errno));
+		    fprintf(stderr, "%s: socket: %s (skipping %s port %s)\n",
+			    progname, strerror(errno), tp->host, tp->port);
 		    ep->socket = 0;
 		    continue;
 		}
@@ -398,8 +399,8 @@ prepare(target_t *targets)
 	    
 	    flags = fcntl(ep->socket, F_GETFL, 0);
 	    if (fcntl(ep->socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-		fprintf(stderr, "%s: fcntl: %s (skipping)\n",
-			progname, strerror(errno));
+		fprintf(stderr, "%s: fcntl: %s (skipping %s port %s)\n",
+			progname, strerror(errno), tp->host, tp->port);
 		(void) close(ep->socket);
 		continue;
 	    }
@@ -409,8 +410,8 @@ prepare(target_t *targets)
 			ep->addrlen) == -1) {
 		if (errno != EINPROGRESS) {
 		    (void) close(ep->socket);
-		    fprintf(stderr, "%s: connect: %s (skipping)\n",
-			    progname, strerror(errno));
+		    fprintf(stderr, "%s: connect: %s (skipping %s port %s)\n",
+			    progname, strerror(errno), tp->host, tp->port);
 		    continue;
 		}
 	    }
@@ -422,8 +423,9 @@ prepare(target_t *targets)
 
 
 /*
- * Wait in a select() loop for the connect() requests to complete. If
- * the connect() was successful, collect basic timing statistics.
+ * Wait in a select() loop for any pending connect() requests to
+ * complete. If the connect() was successful, collect basic timing
+ * statistics.
  */
 
 static void
@@ -664,8 +666,8 @@ import(const char *filename, char **ports)
 }
 
 /*
- * Here is where the fun starts. Parse the options and run the
- * program in the requested mode.
+ * Here is where the fun starts. Parse the command line options and
+ * run the program in the requested mode.
  */
 
 int
