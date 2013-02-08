@@ -19,7 +19,25 @@ watch -d -- happy -s www.google.com www.bing.com www.yahoo.com
 .SH OPTIONS
 .TP
 .B -m
-Produce more compact machine readable output.
+Produce more compact machine readable output. The output for a given
+target consists of multiple lines, one line for each endpoint of the
+target. Each line has a list of values separated by semicolons (';').
+And example might look like this:
+
+HAPPY.0;1360356320;OK;www.ietf.org;80;2001:1890:126c::1:1e;179411
+HAPPY.0;1360356320;OK;www.ietf.org;80;64.170.98.30;172964
+
+The first value is the string HAPPY.0 (indicates happy version 0). The
+second value is a timestamp (seconds since 1970-01-01) indicating when
+this test was executed. The third value indicates whether the test for
+this particular endpoint was successfully executed (OK) or whether the
+test could not be executes (FAIL), e.g., because the program did run
+out of socket descriptors. Values four and five indicate the target
+name and port number while the sixth value carries the IP address of
+the endpoint. The remaining values report the measured connection
+establishment time (in microseconds) or the recorded timeout time (in
+negative microseconds). As such, it is important to pay attention to
+sign of the values.
 .TP
 .B -s
 Sort the results for all endpoints of a given target. Sorting is based

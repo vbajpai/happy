@@ -52,9 +52,10 @@ typedef struct endpoint {
     struct timeval tvs;
 
     unsigned int sum;
+    unsigned int tot;
     unsigned int idx;
     unsigned int cnt;
-    unsigned int *values;
+    int *values;
 } endpoint_t;
 
 typedef struct target {
@@ -72,8 +73,6 @@ static int skmode = 0;
 static int nqueries = 3;
 static int timeout = 2000;		/* in ms */
 static unsigned int delay = 25;		/* in ms */
-
-#define INVALID 0xffffffff
 
 static int target_valid(target_t *tp) {
     return (tp && tp->host && tp->port && tp->endpoints);
@@ -296,7 +295,7 @@ update(target_t *targets, fd_set *fdset)
 	    timersub(&tv, &ep->tvs, &td);
 	    us = td.tv_sec*1000000 + td.tv_usec;
 	    if (ep->socket && us >= timeout * 1000) {
-		ep->values[ep->idx] = INVALID;
+		ep->values[ep->idx] = -us;
 		ep->idx++;
 		(void) close(ep->socket);
 		ep->socket = 0;
@@ -313,10 +312,12 @@ update(target_t *targets, fd_set *fdset)
 		if (! soerror) {
 		    ep->values[ep->idx] = us;
 		    ep->sum += us;
+		    ep->tot++;
 		    ep->cnt++;
 		    ep->idx++;
 		} else {
-		    ep->values[ep->idx] = INVALID;
+		    ep->values[ep->idx] = -us;
+		    ep->cnt++;
 		    ep->idx++;
 		}
 		(void) close(ep->socket);
@@ -402,6 +403,7 @@ prepare(target_t *targets)
 		fprintf(stderr, "%s: fcntl: %s (skipping %s port %s)\n",
 			progname, strerror(errno), tp->host, tp->port);
 		(void) close(ep->socket);
+		ep->socket = 0;
 		continue;
 	    }
 
@@ -409,9 +411,10 @@ prepare(target_t *targets)
 			(struct sockaddr *) &ep->addr,
 			ep->addrlen) == -1) {
 		if (errno != EINPROGRESS) {
-		    (void) close(ep->socket);
 		    fprintf(stderr, "%s: connect: %s (skipping %s port %s)\n",
 			    progname, strerror(errno), tp->host, tp->port);
+		    (void) close(ep->socket);
+		    ep->socket = 0;
 		    continue;
 		}
 	    }
@@ -471,13 +474,13 @@ cmp(const void *a, const void *b)
     endpoint_t *pa = (endpoint_t *) a;
     endpoint_t *pb = (endpoint_t *) b;
 
-    if (! pa->cnt || ! pb->cnt) {
+    if (! pa->tot || ! pb->tot) {
 	return 0;
     }
 
-    if (pa->sum/pa->cnt < pb->sum/pb->cnt) {
+    if (pa->sum/pa->tot < pb->sum/pb->tot) {
 	return -1;
-    } else if (pa->sum/pa->cnt > pb->sum/pb->cnt) {
+    } else if (pa->sum/pa->tot > pb->sum/pb->tot) {
 	return 1;
     }
     return 0;
@@ -534,7 +537,7 @@ report(target_t *targets)
 	    printf(" %s%n", host, &len);
 	    printf("%*s", (42-len), "");
 	    for (i = 0; i < ep->idx; i++) {
-		if (ep->values[i] != INVALID) {
+		if (ep->values[i] >= 0) {
 		    printf(" %4u.%03u",
 			   ep->values[i] / 1000,
 			   ep->values[i] % 1000);
@@ -583,11 +586,7 @@ report_sk(target_t *targets)
 	    printf("HAPPY.0;%lu;%s;%s;%s;%s",
 		   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
 	    for (i = 0; i < ep->idx; i++) {
-		if (ep->values[i] != INVALID) {
-		    printf(";%u", ep->values[i]);
-		} else {
-		    printf(";");
-		}
+		printf(";%d", ep->values[i]);
 	    }
 	    printf("\n");
 	}
