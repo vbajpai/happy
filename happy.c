@@ -246,22 +246,34 @@ expand(const char *host, const char *port)
 
 /*
  * Generate the file descriptor set for all sockets with a pending
- * asynchronous connect().
+ * asynchronous connect(). If the struct timeval argument is a valid
+ * pointer, leave the smallest timestamp of a socket with a pending
+ * asynchronous connect in the struct timeval.
  */
 
 static int
-generate_fdset(target_t *targets, fd_set *fdset)
+generate_fdset(target_t *targets, fd_set *fdset, struct timeval *to)
 {
     int max;
     target_t *tp;
     endpoint_t *ep;
-    
+
+    if (to) {
+	timerclear(to);
+    }
     FD_ZERO(fdset);
     for (tp = targets, max = -1; target_valid(tp); tp = tp->next) {
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 	    if (ep->socket) {
 		FD_SET(ep->socket, fdset);
-		if (ep->socket > max) max = ep->socket;
+		if (ep->socket > max) {
+		    max = ep->socket;
+		}
+		if (to) {
+		    if (! timerisset(to) || timercmp(&ep->tvs, to, <)) {
+			*to = ep->tvs;
+		    }
+		}
 	    }
 	}
     }
@@ -363,7 +375,7 @@ prepare(target_t *targets)
 		(void) gettimeofday(&dts, NULL);
 		
 		while (1) {
-		    max = generate_fdset(targets, &fdset);
+		    max = generate_fdset(targets, &fdset, NULL);
 		    
 		    (void) gettimeofday(&dtn, NULL);
 		    timersub(&dtn, &dts, &dtd);
@@ -436,20 +448,26 @@ collect(target_t *targets)
 {
     int rc, max;
     fd_set fdset;
-    struct timeval to;
+    struct timeval to, ts, tn;
 
     assert(targets);
 
     while (1) {
 
-	max = generate_fdset(targets, &fdset);
-	if (max == -1) {
-	    break;
-	}
-	
 	if (timeout) {
 	    to.tv_sec = timeout / 1000;
 	    to.tv_usec = (timeout % 1000) * 1000;
+	}
+	
+	max = generate_fdset(targets, &fdset, timeout ? &ts : NULL);
+	if (max == -1) {
+	    break;
+	}
+
+	if (timeout) {
+	    (void) gettimeofday(&tn, NULL);
+	    timeradd(&ts, &to, &to);
+	    timersub(&to, &tn, &to);
 	}
 	
 	rc = select(1 + max, NULL, &fdset, NULL, timeout ? &to : NULL);
