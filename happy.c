@@ -309,6 +309,7 @@ update(target_t *targets, fd_set *fdset)
 	    if (ep->socket && us >= timeout * 1000) {
 		ep->values[ep->idx] = -us;
 		ep->idx++;
+		ep->cnt++;
 		(void) close(ep->socket);
 		ep->socket = 0;
 		continue;
