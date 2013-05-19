@@ -1,0 +1,14 @@
+This is the source code of the happy tool, an implementation of a TCP
+connection establishment time measurement tool. It was originally
+developed to study the effectiveness of the happy eyeballs algorithm
+defined in RFC 6555 but it turns out to be useful for other purposes
+as well. Further documentation is in the man page.
+
+The build environment uses cmake and hence the code should be fairly
+portable. However, patches that improve portability of fix bugs are
+always welcome.
+
+The code is covered by the Simplified BSD License.
+
+Juergen Schoenwaelder
+<j.schoenwaelder@jacobs-university.de>

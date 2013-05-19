@@ -1,13 +1,38 @@
 /*
  * happy.c --
  *
- * A simple TCP happy eyeballs probing tool. It uses non-blocking
- * connect() calls to establish connections concurrently to a number
- * of possible endpoints. This tool is particularly useful to
- * determine whether happy eyeball applications will use IPv4 or IPv6
- * if both are available.
+ * Copyright (c) 2013, Juergen Schoenwaelder, Jacobs University Bremen
+ * All rights reserved.
  *
- * Juergen Schoenwaelder <j.schoenwaelder@jacobs-university.de>
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above
+ *    copyright notice, this list of conditions and the following
+ *    disclaimer in the documentation and/or other materials provided
+ *    with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * The views and conclusions contained in the software and
+ * documentation are those of the authors and should not be
+ * interpreted as representing official policies, either expressed or
+ * implied, of the Leone Project or Jacobs University Bremen.
  */
 
 #define _POSIX_C_SOURCE 2
@@ -41,6 +66,12 @@ static const char *progname = "happy";
 #define NI_MAXSERV	32
 #endif
 
+#define EP_STATE_NEW		0x00
+#define EP_STATE_CONNECTING	0x01
+#define EP_STATE_CONNECTED	0x02
+#define EP_STATE_TIMEDOUT	0x04
+#define EP_STATE_FAILED		0x08
+
 typedef struct endpoint {
     int family;
     int socktype;
@@ -50,6 +81,7 @@ typedef struct endpoint {
 
     int socket;
     struct timeval tvs;
+    int state;
 
     unsigned int sum;
     unsigned int tot;
@@ -264,7 +296,7 @@ generate_fdset(target_t *targets, fd_set *fdset, struct timeval *to)
     FD_ZERO(fdset);
     for (tp = targets, max = -1; target_valid(tp); tp = tp->next) {
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	    if (ep->socket) {
+	    if (ep->state == EP_STATE_CONNECTING) {
 		FD_SET(ep->socket, fdset);
 		if (ep->socket > max) {
 		    max = ep->socket;
@@ -306,16 +338,17 @@ update(target_t *targets, fd_set *fdset)
 	    /* calculate time since we started the connect */
 	    timersub(&tv, &ep->tvs, &td);
 	    us = td.tv_sec*1000000 + td.tv_usec;
-	    if (ep->socket && us >= timeout * 1000) {
+	    if (ep->state == EP_STATE_CONNECTING && us >= timeout * 1000) {
 		ep->values[ep->idx] = -us;
 		ep->idx++;
 		ep->cnt++;
 		(void) close(ep->socket);
 		ep->socket = 0;
+		ep->state = EP_STATE_TIMEDOUT;
 		continue;
 	    }
-	    if (ep->socket && FD_ISSET(ep->socket, fdset)) {
-		
+	    if (ep->state == EP_STATE_CONNECTING
+		&& FD_ISSET(ep->socket, fdset)) {
 		if (-1 == getsockopt(ep->socket, SOL_SOCKET, SO_ERROR,
 				     &soerror, &soerrorlen)) {
 		    fprintf(stderr, "%s: getsockopt: %s\n",
@@ -335,6 +368,7 @@ update(target_t *targets, fd_set *fdset)
 		}
 		(void) close(ep->socket);
 		ep->socket = 0;
+		ep->state = EP_STATE_CONNECTED;
 	    }
 	}
     }
@@ -407,6 +441,7 @@ prepare(target_t *targets)
 		    fprintf(stderr, "%s: socket: %s (skipping %s port %s)\n",
 			    progname, strerror(errno), tp->host, tp->port);
 		    ep->socket = 0;
+		    ep->state = EP_STATE_FAILED;
 		    continue;
 		}
 	    }
@@ -417,6 +452,7 @@ prepare(target_t *targets)
 			progname, strerror(errno), tp->host, tp->port);
 		(void) close(ep->socket);
 		ep->socket = 0;
+		ep->state = EP_STATE_FAILED;
 		continue;
 	    }
 
@@ -428,10 +464,12 @@ prepare(target_t *targets)
 			    progname, strerror(errno), tp->host, tp->port);
 		    (void) close(ep->socket);
 		    ep->socket = 0;
+		    ep->state = EP_STATE_FAILED;
 		    continue;
 		}
 	    }
-	    
+
+	    ep->state = EP_STATE_CONNECTING;	    
 	    (void) gettimeofday(&ep->tvs, NULL);
 	}
     }
