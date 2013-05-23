@@ -1,11 +1,21 @@
 <h1 id="happy">happy</h1>
 <hr />
-<p><code>happy</code> is a simple TCP happy eyeballs probing tool. It uses non‐blocking <code>connect()</code> calls to establish connections concurrently to a number of possible endpoints. This tool is particularly useful to determine whether happy eyeball [RFC 6555] applications will use IPv4 or IPv6 if both are available.</p>
+<p><code>happy</code> is a simple TCP happy eyeballs probing tool. It uses non‐blocking <code>connect(...)</code> calls to establish connections concurrently to a number of possible endpoints. This tool is particularly useful to determine whether happy eyeball [RFC 6555] applications will use IPv4 or IPv6 if both are available.</p>
 <h3 id="features">Features</h3>
+<ul>
+<li>uses <code>getaddrinfo(...)</code> to resolve service names to endpoints.</li>
+<li>uses non-blocking <code>connect(...)</code> to connect to all endpoints of a service.</li>
+<li>uses a short delay between connection attempts to avoid <code>SYN</code> floods (configurable)</li>
+<li>the service name resolution time is not accounted in the output.</li>
+<li>capability to read the input service names list from a file.</li>
+<li>file locking capability when <code>stdout</code> points to a regular file.</li>
+<li>can produce either human-readable or machine-readable output.</li>
+<li>sort the output for all endpoints for a service name.</li>
+</ul>
 <h3 id="installation-and-usage">Installation and Usage</h3>
+<p>The build environment uses <code>cmake</code> and hence the code should be fairly portable. However, patches that improve portability of fix bugs are always welcome.</p>
 <h3 id="invited-talks">Invited Talks</h3>
 <p><a href="https://ripe66.ripe.net/archives/video/1208">Measuring the Effectiveness of Happy Eyeballs →</a><br />Vaibhav Bajpai and Jürgen Schönwälder<br />RIPE 66, Dublin, May 2013</p>
-<h3 id="publications">Publications</h3>
 <h3 id="authors">Authors</h3>
 <ul>
 <li>Jürgen Schönwälder <a href="j.schoenwaelder@jacobs-university.de">j.schoenwaelder@jacobs-university.de</a></li>
