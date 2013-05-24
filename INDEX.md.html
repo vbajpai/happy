@@ -1,6 +1,9 @@
 <h1 id="happy">happy</h1>
 <hr />
-<p><code>happy</code> is a simple TCP happy eyeballs probing tool. It uses non‐blocking <code>connect(...)</code> calls to establish connections concurrently to a number of possible endpoints. This tool is particularly useful to determine whether happy eyeball [RFC 6555] applications will use IPv4 or IPv6 if both are available.</p>
+<p><code>happy</code> is a simple TCP happy eyeballs probing tool. It uses non‐blocking <code>connect(...)</code> calls to concurrently establish connections to a number of possible endpoints. This tool is particularly useful to determine whether applications implementing the happy eyeball algorithm [RFC 6555] will use IPv4 or IPv6 if both are available.</p>
+<div class="figure">
+<img src="http://i.imgur.com/WeGzIZ7.png" /><p class="caption"></p>
+</div>
 <h3 id="features">Features</h3>
 <ul>
 <li>uses <code>getaddrinfo(...)</code> to resolve service names to endpoints.</li>
@@ -10,19 +13,37 @@
 <li>capability to read the input service names list from a file.</li>
 <li>file locking capability when <code>stdout</code> points to a regular file.</li>
 <li>can produce either human-readable or machine-readable output.</li>
-<li>sort the output for all endpoints for a service name.</li>
+<li>can sort the output for all endpoints for a service name.</li>
 </ul>
 <h3 id="installation-and-usage">Installation and Usage</h3>
-<p>The build environment uses <code>cmake</code> and hence the code should be fairly portable. However, patches that improve portability of fix bugs are always welcome.</p>
+<p>The build environment uses <code>cmake</code>. An accompanying man page describes all the options available in detail.</p>
+<pre><code>$ make
+$ bin/happy ‐s www.google.com www.bing.com 
+www.google.com:80
+ 2a00:1450:4008:c01::69                       9.255   10.124    9.502
+ 173.194.69.147                               8.918    9.493    9.253
+ 173.194.69.99                                9.879    9.139   10.099
+ 173.194.69.104                               9.544    9.503    9.802
+ 173.194.69.105                               9.245    8.989   10.108
+ 173.194.69.106                              10.111    9.533    9.798
+ 173.194.69.103                               9.514    9.553    8.882
+
+www.bing.com:80
+ 2001:638:a:2::d4c9:6487                      4.010    3.409    4.019
+ 2001:638:a:2::d4c9:6490                      3.093    3.706    3.756
+ 212.201.100.135                              3.400    3.397    4.004
+ 212.201.100.144                              2.785    3.401    4.324</code></pre>
 <h3 id="invited-talks">Invited Talks</h3>
 <p><a href="https://ripe66.ripe.net/archives/video/1208">Measuring the Effectiveness of Happy Eyeballs →</a><br />Vaibhav Bajpai and Jürgen Schönwälder<br />RIPE 66, Dublin, May 2013</p>
+<p><a href="http://vaibhavbajpai.com/documents/talks/happy-leone-rome.pdf">Happy Eyeballs →</a><br />Vaibhav Bajpai and Jürgen Schönwälder<br />Leone Plenary, Rome, February 2013</p>
+<h3 id="manuscripts">Manuscripts</h3>
+<p><a href="http://vaibhavbajpai.com/documents/papers/manuscripts/happy-ripe66.pdf">Measuring the Effectiveness of Happy Eyeballs →</a><br />Vaibhav Bajpai and Jürgen Schönwälder<br />RIPE 66, Dublin, May 2013</p>
 <h3 id="authors">Authors</h3>
 <ul>
 <li>Jürgen Schönwälder <a href="j.schoenwaelder@jacobs-university.de">j.schoenwaelder@jacobs-university.de</a></li>
 </ul>
 <h3 id="license">License</h3>
 <pre>
-
 Copyright (c) 2013, Juergen Schoenwaelder, Jacobs University Bremen
 All rights reserved.
 
@@ -55,7 +76,6 @@ The views and conclusions contained in the software and
 documentation are those of the authors and should not be
 interpreted as representing official policies, either expressed or
 implied, of the Leone Project or Jacobs University Bremen.
-
 </pre>
 
 
