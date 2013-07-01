@@ -48,10 +48,6 @@ all the options available in detail.
 Vaibhav Bajpai and Jürgen Schönwälder  
 RIPE 66, Dublin, May 2013
 
-[Happy Eyeballs &rarr;](http://vaibhavbajpai.com/documents/talks/happy-leone-rome.pdf)  
-Vaibhav Bajpai and Jürgen Schönwälder  
-Leone Plenary, Rome, February 2013
-
 ### Manuscripts
 
 [Measuring the Effectiveness of Happy Eyeballs
