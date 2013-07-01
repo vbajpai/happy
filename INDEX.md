@@ -42,6 +42,13 @@ all the options available in detail.
      212.201.100.135                              3.400    3.397    4.004
      212.201.100.144                              2.785    3.401    4.324
 
+### Technical Articles
+
+[Evaluating the Effectiveness of Happy Eyeballs
+&rarr;](https://labs.ripe.net/Members/vaibhav_bajpai/evaluating-the-effectiveness-of-happy-eyeballs)  
+Vaibhav Bajpai and Jürgen Schönwälder  
+RIPE Labs, June 2013
+
 ### Invited Talks
 
 [Measuring the Effectiveness of Happy Eyeballs &rarr;](https://ripe66.ripe.net/archives/video/1208)  
