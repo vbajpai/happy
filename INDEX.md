@@ -49,16 +49,23 @@ all the options available in detail.
 Vaibhav Bajpai and Jürgen Schönwälder  
 RIPE Labs, June 2013
 
+### Internet Drafts
+
+[Measuring the Effects of Happy Eyeballs
+&rarr;](http://tools.ietf.org/html/draft-bajpai-happy-01)  
+Vaibhav Bajpai and Jürgen Schönwälder  
+Internet Draft (I-D), July 2013
+
 ### Invited Talks
 
-[Measuring the Effectiveness of Happy Eyeballs &rarr;](https://ripe66.ripe.net/archives/video/1208)  
+[Measuring the Effects of Happy Eyeballs
+&rarr;](http://cnds.eecs.jacobs-university.de/slides/2013-ietf-87-happy.pdf)  
+[Video Recording &rarr;](https://vimeo.com/71407427)  
 Vaibhav Bajpai and Jürgen Schönwälder  
-RIPE 66, Dublin, May 2013
-
-### Manuscripts
+IETF 87, Berlin, July 2013
 
 [Measuring the Effectiveness of Happy Eyeballs
-&rarr;](http://vaibhavbajpai.com/documents/papers/manuscripts/happy-ripe66.pdf)  
+&rarr;](https://ripe66.ripe.net/archives/video/1208)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 RIPE 66, Dublin, May 2013
 
