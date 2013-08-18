@@ -42,6 +42,14 @@ all the options available in detail.
      212.201.100.135                              3.400    3.397    4.004
      212.201.100.144                              2.785    3.401    4.324
 
+### Publications 
+
+Measuring TCP Connection Establishment Times of Dual-Stacked Web
+Services &rarr;  
+Vaibhav Bajpai and Jürgen Schönwälder  
+9th International Conference on Network and Service Management (CNSM 2013)  
+Zurich, October 2013 (to appear)  
+
 ### Technical Articles
 
 [Evaluating the Effectiveness of Happy Eyeballs
