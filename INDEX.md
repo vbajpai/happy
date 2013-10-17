@@ -44,11 +44,11 @@ all the options available in detail.
 
 ### Publications 
 
-Measuring TCP Connection Establishment Times of Dual-Stacked Web
-Services &rarr;  
+[Measuring TCP Connection Establishment Times of Dual-Stacked Web
+Services &rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-tcp-cnsm-2013.pdf)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 9th International Conference on Network and Service Management (CNSM 2013)  
-Zurich, October 2013 (to appear)  
+Zurich, October 2013  
 
 ### Technical Articles
 
