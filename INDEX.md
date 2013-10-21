@@ -66,8 +66,14 @@ Internet Draft (I-D), July 2013
 
 ### Invited Talks
 
+[Measuring TCP Connection Establishment Times of Dual-Stacked Web
+Services
+&rarr;](http://www.ietf.org/proceedings/interim/2013/10/14/nmrg/slides/slides-interim-2013-nmrg-1-10.pdf)  
+Vaibhav Bajpai and Jürgen Schönwälder  
+IRTF NMRG Workshop on Large-Scale Measurements, Zürich, October 2013  
+
 [Measuring the Effects of Happy Eyeballs
-&rarr;](http://cnds.eecs.jacobs-university.de/slides/2013-ietf-87-happy.pdf)  
+&rarr;](http://www.ietf.org/proceedings/87/slides/slides-87-v6ops-8.pdf)  
 [Video Recording &rarr;](https://vimeo.com/71407427)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 IETF 87, Berlin, July 2013
