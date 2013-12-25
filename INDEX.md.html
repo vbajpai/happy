@@ -1,9 +1,7 @@
 <h1 id="happy">happy</h1>
 <hr />
 <p><code>happy</code> is a simple TCP happy eyeballs probing tool. It uses non‐blocking <code>connect(...)</code> calls to concurrently establish connections to a number of possible endpoints. This tool is particularly useful to determine whether applications implementing the happy eyeball algorithm [RFC 6555] will use IPv4 or IPv6 if both are available.</p>
-<div class="figure">
-<img src="http://i.imgur.com/WeGzIZ7.png" />
-</div>
+<p><img src="http://i.imgur.com/WeGzIZ7.png" /> <br/></p>
 <h3 id="features">Features</h3>
 <ul>
 <li>uses <code>getaddrinfo(...)</code> to resolve service names to endpoints.</li>
@@ -33,6 +31,8 @@ www.bing.com:80
  2001:638:a:2::d4c9:6490                      3.093    3.706    3.756
  212.201.100.135                              3.400    3.397    4.004
  212.201.100.144                              2.785    3.401    4.324</code></pre>
+<h3 id="releases">Releases</h3>
+<p>You can either fork the bleeding edge development version or download a release from <a href="https://github.com/vbajpai/happy/releases">here →</a></p>
 <h3 id="publications">Publications</h3>
 <p><a href="http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-tcp-cnsm-2013.pdf">Measuring TCP Connection Establishment Times of Dual-Stacked Web Services →</a><br />Vaibhav Bajpai and Jürgen Schönwälder<br />9th International Conference on Network and Service Management (CNSM 2013)<br />Zurich, October 2013</p>
 <h3 id="technical-articles">Technical Articles</h3>

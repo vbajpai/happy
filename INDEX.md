@@ -7,7 +7,8 @@ to a number of possible endpoints. This tool is particularly useful to
 determine whether applications implementing the happy eyeball algorithm
 [RFC 6555] will use IPv4 or IPv6 if both are available.
 
-![](http://i.imgur.com/WeGzIZ7.png)
+![](http://i.imgur.com/WeGzIZ7.png) 
+<br/>
 
 ### Features
 
@@ -42,7 +43,12 @@ all the options available in detail.
      212.201.100.135                              3.400    3.397    4.004
      212.201.100.144                              2.785    3.401    4.324
 
-### Publications 
+### Releases
+
+You can either fork the bleeding edge development version or download a
+release from [here &rarr;](https://github.com/vbajpai/happy/releases)
+
+### Publications
 
 [Measuring TCP Connection Establishment Times of Dual-Stacked Web
 Services &rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-tcp-cnsm-2013.pdf)  
