@@ -88,6 +88,9 @@ typedef struct endpoint {
     unsigned int idx;
     unsigned int cnt;
     int *values;
+
+    unsigned int send;
+    unsigned int rcvd;
 } endpoint_t;
 
 typedef struct target {
@@ -100,11 +103,14 @@ typedef struct target {
 
 static target_t *targets = NULL;
 
+static int pmode = 0;
 static int smode = 0;
 static int skmode = 0;
 static int nqueries = 3;
 static int timeout = 2000;		/* in ms */
 static unsigned int delay = 25;		/* in ms */
+
+static int pump_timeout = 2000;		/* in ms */
 
 static int target_valid(target_t *tp) {
     return (tp && tp->host && tp->port && tp->endpoints);
@@ -366,8 +372,10 @@ update(target_t *targets, fd_set *fdset)
 		    ep->cnt++;
 		    ep->idx++;
 		}
-		(void) close(ep->socket);
-		ep->socket = 0;
+		if (! pmode) {
+		    (void) close(ep->socket);
+		    ep->socket = 0;
+		}
 		ep->state = EP_STATE_CONNECTED;
 	    }
 	}
@@ -582,7 +590,7 @@ report(target_t *targets)
 
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 	
-	    n = getnameinfo((struct sockaddr *) &ep->addr, 
+	    n = getnameinfo((struct sockaddr *) &ep->addr,
 			    ep->addrlen,
 			    host, sizeof(host), serv, sizeof(serv),
 			    NI_NUMERICHOST | NI_NUMERICSERV);
@@ -608,6 +616,54 @@ report(target_t *targets)
 }
 
 /*
+ * Report the pump results. For each endpoint of a target, we show the
+ * bytes/seconds send and received.
+ */
+
+static void
+report_pump(target_t *targets)
+{
+    int n, len;
+    char host[NI_MAXHOST];
+    char serv[NI_MAXSERV];
+    target_t *tp;
+    endpoint_t *ep;
+
+    assert(targets);
+
+    if (!pmode) {
+	return;
+    }
+
+    for (tp = targets; target_valid(tp); tp = tp->next) {
+
+	printf("%s%s:%s\n",
+	       (tp != targets) ? "\n" : "", tp->host, tp->port);
+
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    n = getnameinfo((struct sockaddr *) &ep->addr,
+			    ep->addrlen,
+			    host, sizeof(host), serv, sizeof(serv),
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+	    if (n) {
+		fprintf(stderr, "%s: getnameinfo: %s\n",
+			progname, gai_strerror(n));
+		continue;
+	    }
+	    printf(" %s%n", host, &len);
+	    printf("%*s", (42-len), "");
+	    printf(" %4u.%03u [sent]",
+		   ep->send / pump_timeout * 1000 / 1000,
+		   ep->send / pump_timeout * 1000 % 1000);
+	    printf(" %4u.%03u [rcvd]",
+		   ep->rcvd / pump_timeout * 1000 / 1000,
+		   ep->rcvd / pump_timeout * 1000 % 1000);
+	    printf("\n");
+	}
+    }
+}
+
+/*
  * Report the results. This function produces a more compact semicolon
  * separated output format intended for consumption by other programs.
  */
@@ -621,16 +677,16 @@ report_sk(target_t *targets)
     target_t *tp;
     endpoint_t *ep;
     time_t now;
-    
+
     assert(targets);
-    
+
     now = time(NULL);
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	
-	    n = getnameinfo((struct sockaddr *) &ep->addr, 
+
+	    n = getnameinfo((struct sockaddr *) &ep->addr,
 			    ep->addrlen,
 			    host, sizeof(host), serv, sizeof(serv),
 			    NI_NUMERICHOST | NI_NUMERICSERV);
@@ -651,6 +707,55 @@ report_sk(target_t *targets)
 }
 
 /*
+ * Report the pump results. This function produces a more compact
+ * semicolon separated output format intended for consumption by other
+ * programs.
+ */
+
+static void
+report_pump_sk(target_t *targets)
+{
+    int n;
+    char host[NI_MAXHOST];
+    char serv[NI_MAXSERV];
+    target_t *tp;
+    endpoint_t *ep;
+    time_t now;
+
+    assert(targets);
+
+    if (! pmode) {
+	return;
+    }
+
+    for (tp = targets; target_valid(tp); tp = tp->next) {
+
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+
+	    n = getnameinfo((struct sockaddr *) &ep->addr,
+			    ep->addrlen,
+			    host, sizeof(host), serv, sizeof(serv),
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+	    if (n) {
+		fprintf(stderr, "%s: getnameinfo: %s\n",
+			progname, gai_strerror(n));
+		continue;
+	    }
+
+	    printf("PUMP.0;%lu;%s;%s;%s;%s",
+		   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
+	    printf(";%u.%03u",
+		   ep->send / pump_timeout * 1000 / 1000,
+		   ep->send / pump_timeout * 1000 % 1000);
+	    printf(";%u.%03u",
+		   ep->rcvd / pump_timeout * 1000 / 1000,
+		   ep->rcvd / pump_timeout * 1000 % 1000);
+	    printf("\n");
+	}
+    }
+}
+
+/*
  * Cleanup targets and release all target data structures.
  */
 
@@ -665,6 +770,9 @@ cleanup(target_t *targets)
     for (tp = targets; target_valid(tp); tp = np) {
 	np = tp->next;
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    if (ep->socket) {
+		(void) close(ep->socket);
+	    }
 	    if (ep->values) {
 		(void) free(ep->values);
 	    }
@@ -722,6 +830,76 @@ import(const char *filename, char **ports)
 }
 
 /*
+ * Pump connections with HTTP GET requests and measure the datarate
+ * (throughput) of the stream of responses.
+ */
+
+static void
+pump(target_t *targets)
+{
+    static char const template[] =
+	"GET / HTTP/1.1\r\n"
+	"Host: %s\r\n"
+	"User-Agent: pump/0.1\r\n"
+	"Cache-Control: no-cache\r\n"
+	"Connection: Keep-Alive\r\n"
+	"\r\n";
+
+    static char *msg;
+    target_t *tp, *np;
+    endpoint_t *ep;
+    struct timeval ts, tn, td;
+    fd_set rfds, wfds;
+    char buffer[8192];
+    unsigned int us;
+    int rc;
+
+    assert(targets);
+
+    for (tp = targets; target_valid(tp); tp = np) {
+	np = tp->next;
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    if (ep->state != EP_STATE_CONNECTED) {
+		continue;
+	    }
+	    msg = malloc(strlen(template)+strlen(tp->host));
+	    if (! msg) {
+		fprintf(stderr, "%s: malloc failed for %s\n",
+			progname, tp->host);
+		continue;
+	    }
+	    snprintf(msg, strlen(template)+strlen(tp->host), template, tp->host);
+
+	    (void) gettimeofday(&ts, NULL);
+	    us = 0;
+	    while (us < pump_timeout * 1000) {
+		FD_ZERO(&rfds);
+		FD_SET(ep->socket, &rfds);
+		FD_ZERO(&wfds);
+		FD_SET(ep->socket, &wfds);
+		rc = select(1 + ep->socket, &rfds, &wfds, NULL, NULL);
+		if (rc == -1) {
+		    fprintf(stderr, "%s: select failed: %s\n",
+			    progname, strerror(errno));
+		    exit(EXIT_FAILURE);
+		}
+		if (FD_ISSET(ep->socket, &rfds)) {
+		    ep->rcvd += read(ep->socket, buffer, sizeof(buffer));
+		}
+		if (FD_ISSET(ep->socket, &wfds)) {
+		    ep->send += write(ep->socket, msg, strlen(msg));
+		}
+		(void) gettimeofday(&tn, NULL);
+		timersub(&tn, &ts, &td);
+		us = td.tv_sec*1000000 + td.tv_usec;
+	    }
+
+	    free(msg);
+	}
+    }
+}
+
+/*
  * Here is where the fun starts. Parse the command line options and
  * run the program in the requested mode.
  */
@@ -734,8 +912,11 @@ main(int argc, char *argv[])
     char **usr_ports = NULL;
     char **ports = def_ports;
 
-    while ((c = getopt(argc, argv, "d:p:q:f:hmst:")) != -1) {
+    while ((c = getopt(argc, argv, "bd:p:q:f:hmst:")) != -1) {
 	switch (c) {
+	case 'b':
+	    pmode = 1;
+	    break;
 	case 'd':
 	    {
 	        char *endptr;
@@ -795,7 +976,7 @@ main(int argc, char *argv[])
 	default: /* '?' */
 	    fprintf(stderr,
 		    "Usage: %s [-p port] [-q nqueries] "
-		    "[-t timeout] [-d delay ] [-f file] [-s] [-m] "
+		    "[-t timeout] [-d delay ] [-f file] [-s] [-m] [-b] "
 		    "hostname...\n", progname);
 	    exit(EXIT_FAILURE);
 	}
@@ -817,11 +998,22 @@ main(int argc, char *argv[])
 	if (smode) {
 	    sort(targets);
 	}
+	if (pmode) {
+	    pump(targets);
+	}
 	lock(stdout);
 	if (skmode) {
 	    report_sk(targets);
 	} else {
 	    report(targets);
+	}
+	if (pmode) {
+	    if (skmode) {
+		report_pump_sk(targets);
+	    } else {
+		printf("\n");
+		report_pump(targets);
+	    }
 	}
 	unlock(stdout);
 	cleanup(targets);

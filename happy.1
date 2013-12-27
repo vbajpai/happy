@@ -18,6 +18,20 @@ A common usage is in combination with watch(1):
 watch -d -- happy -s www.google.com www.bing.com www.yahoo.com
 .SH OPTIONS
 .TP
+.B -b
+Send a sequence of HTTP requests in order to determine the data rate
+at which the server returns responses.
+.TP
+.BI \-d " delay"
+Set the delay between TCP connection attempts to
+.I delay
+milliseconds. The default is 25 milliseconds.
+.TP
+.BI \-f " file"
+Read the targets from the
+.I file
+or from standard input if the file name is a single dash (`-').
+.TP
 .B -m
 Produce more compact machine readable output. The output for a given
 target consists of multiple lines, one line for each endpoint of the
@@ -38,7 +52,6 @@ the endpoint. The remaining values report the measured connection
 establishment time (in microseconds) or the recorded timeout time (in
 negative microseconds). As such, it is important to pay attention to
 sign of the values.
-.TP
 .B -s
 Sort the results for all endpoints of a given target. Sorting is based
 on the average time it took to establish TCP connections. (Failed attempts
@@ -60,16 +73,6 @@ given targets. The default is 3 attempts.
 Set the timeout to
 .I timeout
 milliseconds. The default is 2000 milliseconds (= 2 seconds).
-.TP
-.BI \-d " delay"
-Set the delay between TCP connection attempts to
-.I delay
-milliseconds. The default is 25 milliseconds.
-.TP
-.BI \-f " file"
-Read the targets from the 
-.I file
-or from standard input if the file name is a single dash (`-').
 .SH SEE ALSO
 watch (1), RFC 6555
 .SH LIMITATIONS
