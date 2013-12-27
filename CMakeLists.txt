@@ -4,11 +4,14 @@
 
 cmake_minimum_required(VERSION 2.6)
 project(happy C) 
+include(GNUInstallDirs)
+
 add_executable(happy happy.c)
 set_property(SOURCE happy.c
              APPEND PROPERTY COMPILE_FLAGS "--std=c99 -Wall")
 
-install(TARGETS happy DESTINATION bin)
+install(TARGETS happy DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES happy.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 COMPONENT doc)
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
