@@ -52,6 +52,24 @@ the endpoint. The remaining values report the measured connection
 establishment time (in microseconds) or the recorded timeout time (in
 negative microseconds). As such, it is important to pay attention to
 sign of the values.
+
+It the -b option is used, then the machine readable output will also
+contain lines that list the data rate measured. An example might look
+like this:
+
+PUMP.0;1388237987;OK;www.ietf.org;80;2001:1900:3001:11::2c;109.000;151.000
+PUMP.0;1388237987;OK;www.ietf.org;80;4.31.198.44;118.000;561.000
+
+The first value is the string HAPPY.0 (indicates happy version 0). The
+second value is a timestamp (seconds since 1970-01-01) indicating when
+this test was executed. The third value indicates whether the test for
+this particular endpoint was successfully executed (OK) or whether the
+test could not be executes (FAIL), e.g., because the program did run
+out of socket descriptors. Values four and five indicate the target
+name and port number while the sixth value carries the IP address of
+the endpoint. The remaining values report the number of bytes per
+second pumped to the web server and the number of bytes per second
+received from the web server.
 .TP
 .B -s
 Sort the results for all endpoints of a given target. Sorting is based
