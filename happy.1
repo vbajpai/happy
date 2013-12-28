@@ -22,6 +22,10 @@ watch -d -- happy -s www.google.com www.bing.com www.yahoo.com
 Send a sequence of HTTP requests in order to determine the data rate
 at which the server returns responses.
 .TP
+.B -c
+Measure the connection establishment time using non-blocking connect()
+calls. This is the default if no other measurements are selected.
+.TP
 .BI \-d " delay"
 Set the delay between TCP connection attempts to
 .I delay

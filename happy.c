@@ -104,6 +104,7 @@ typedef struct target {
 static target_t *targets = NULL;
 
 static int pmode = 0;
+static int cmode = 0;
 static int smode = 0;
 static int skmode = 0;
 static int nqueries = 3;
@@ -631,10 +632,6 @@ report_pump(target_t *targets)
 
     assert(targets);
 
-    if (!pmode) {
-	return;
-    }
-
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	printf("%s%s:%s\n",
@@ -723,10 +720,6 @@ report_pump_sk(target_t *targets)
     time_t now;
 
     assert(targets);
-
-    if (! pmode) {
-	return;
-    }
 
     now = time(NULL);
 
@@ -914,10 +907,13 @@ main(int argc, char *argv[])
     char **usr_ports = NULL;
     char **ports = def_ports;
 
-    while ((c = getopt(argc, argv, "bd:p:q:f:hmst:")) != -1) {
+    while ((c = getopt(argc, argv, "bcd:p:q:f:hmst:")) != -1) {
 	switch (c) {
 	case 'b':
 	    pmode = 1;
+	    break;
+	case 'c':
+	    cmode = 1;
 	    break;
 	case 'd':
 	    {
@@ -978,13 +974,17 @@ main(int argc, char *argv[])
 	default: /* '?' */
 	    fprintf(stderr,
 		    "Usage: %s [-p port] [-q nqueries] "
-		    "[-t timeout] [-d delay ] [-f file] [-s] [-m] [-b] "
+		    "[-t timeout] [-d delay ] [-f file] [-s] [-m] [-b] [-c] "
 		    "hostname...\n", progname);
 	    exit(EXIT_FAILURE);
 	}
     }
     argc -= optind;
     argv += optind;
+
+    if (! cmode && ! pmode) {
+	cmode = 1;
+    }
     
     for (i = 0; i < argc; i++) {
 	for (j = 0; ports[j]; j++) {
@@ -1004,16 +1004,20 @@ main(int argc, char *argv[])
 	    pump(targets);
 	}
 	lock(stdout);
-	if (skmode) {
-	    report_sk(targets);
-	} else {
-	    report(targets);
+	if (cmode) {
+	    if (skmode) {
+		report_sk(targets);
+	    } else {
+		report(targets);
+	    }
 	}
 	if (pmode) {
 	    if (skmode) {
 		report_pump_sk(targets);
 	    } else {
-		printf("\n");
+		if (cmode) {
+		    printf("\n");
+		}
 		report_pump(targets);
 	    }
 	}
