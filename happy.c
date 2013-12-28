@@ -728,6 +728,8 @@ report_pump_sk(target_t *targets)
 	return;
     }
 
+    now = time(NULL);
+
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
