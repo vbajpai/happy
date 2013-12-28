@@ -1,3 +1,9 @@
+v0.1
+
+- updated cmake to roperly handle installation of man pages
+- added option -b to measure the speed in which HTTP requests are responded to.
+- updated the man page with a description of the -b option. 
+
 v0.0
 
 - uses getaddrinfo(...) to resolve service names to endpoints.
