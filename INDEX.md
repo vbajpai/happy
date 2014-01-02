@@ -56,19 +56,15 @@ Vaibhav Bajpai and Jürgen Schönwälder
 9th International Conference on Network and Service Management (CNSM 2013)  
 Zurich, October 2013  
 
-### Technical Articles
+[Measuring the Effects of Happy Eyeballs
+&rarr;](http://tools.ietf.org/html/draft-bajpai-happy-01)  
+Vaibhav Bajpai and Jürgen Schönwälder  
+Internet Draft (I-D), July 2013
 
 [Evaluating the Effectiveness of Happy Eyeballs
 &rarr;](https://labs.ripe.net/Members/vaibhav_bajpai/evaluating-the-effectiveness-of-happy-eyeballs)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 RIPE Labs, June 2013
-
-### Internet Drafts
-
-[Measuring the Effects of Happy Eyeballs
-&rarr;](http://tools.ietf.org/html/draft-bajpai-happy-01)  
-Vaibhav Bajpai and Jürgen Schönwälder  
-Internet Draft (I-D), July 2013
 
 ### Invited Talks
 
@@ -84,10 +80,18 @@ IRTF NMRG Workshop on Large-Scale Measurements, Zürich, October 2013
 Vaibhav Bajpai and Jürgen Schönwälder  
 IETF 87, Berlin, July 2013
 
+<iframe src="//player.vimeo.com/video/71407427" width="500" height="376"
+frameborder="0" webkitallowfullscreen mozallowfullscreen
+allowfullscreen></iframe>
+
 [Measuring the Effectiveness of Happy Eyeballs
 &rarr;](https://ripe66.ripe.net/archives/video/1208)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 RIPE 66, Dublin, May 2013
+
+<iframe src="//player.vimeo.com/video/83236147" width="500" height="375"
+frameborder="0" webkitallowfullscreen mozallowfullscreen
+allowfullscreen></iframe>
 
 ### Authors
 
