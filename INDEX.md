@@ -76,13 +76,14 @@ IRTF NMRG Workshop on Large-Scale Measurements, Zürich, October 2013
 
 [Measuring the Effects of Happy Eyeballs
 &rarr;](http://www.ietf.org/proceedings/87/slides/slides-87-v6ops-8.pdf)  
-[Video Recording &rarr;](https://vimeo.com/71407427)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 IETF 87, Berlin, July 2013
 
 <iframe src="//player.vimeo.com/video/71407427" width="500" height="376"
 frameborder="0" webkitallowfullscreen mozallowfullscreen
 allowfullscreen></iframe>
+
+<br/>
 
 [Measuring the Effectiveness of Happy Eyeballs
 &rarr;](https://ripe66.ripe.net/archives/video/1208)  
@@ -92,6 +93,8 @@ RIPE 66, Dublin, May 2013
 <iframe src="//player.vimeo.com/video/83236147" width="500" height="375"
 frameborder="0" webkitallowfullscreen mozallowfullscreen
 allowfullscreen></iframe>
+
+<br/>
 
 ### Authors
 
