@@ -10,7 +10,7 @@
  *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above
  *    copyright notice, this list of conditions and the following
  *    disclaimer in the documentation and/or other materials provided
@@ -130,8 +130,8 @@ xcalloc(size_t nmemb, size_t size)
 {
     void *p = calloc(nmemb, size);
     if (!p) {
-	fprintf(stderr, "%s: memory allocation failure\n", progname);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "%s: memory allocation failure\n", progname);
+        exit(EXIT_FAILURE);
     }
     return p;
 }
@@ -177,10 +177,10 @@ lock(FILE *f)
 
     fd = fileno(f);
     if ((fstat(fd, &buf) == 0) && S_ISREG(buf.st_mode)) {
-	if (fcntl(fd, F_SETLKW, &lock) == -1) {
-	    fprintf(stderr, "%s: fcntl: %s (ignored)\n",
-		    progname, strerror(errno));
-	}
+        if (fcntl(fd, F_SETLKW, &lock) == -1) {
+            fprintf(stderr, "%s: fcntl: %s (ignored)\n",
+                    progname, strerror(errno));
+        }
     }
 }
 
@@ -206,10 +206,10 @@ unlock(FILE *f)
 
     fd = fileno(f);
     if ((fstat(fd, &buf) == 0) && S_ISREG(buf.st_mode)) {
-	if (fcntl(fd, F_SETLKW, &lock) == -1) {
-	    fprintf(stderr, "%s: fcntl: %s (ignored)\n",
-		    progname, strerror(errno));
-	}
+        if (fcntl(fd, F_SETLKW, &lock) == -1) {
+            fprintf(stderr, "%s: fcntl: %s (ignored)\n",
+                    progname, strerror(errno));
+        }
     }
 }
 
@@ -225,12 +225,12 @@ append(target_t *target)
     static target_t *last_target = NULL;
 
     if (target) {
-	if (! targets) {
-	    targets = target;
-	} else {
-	    last_target->next = target;
-	}
-	last_target = target;
+        if (! targets) {
+            targets = target;
+        } else {
+            last_target->next = target;
+        }
+        last_target = target;
     }
 }
 
@@ -256,9 +256,9 @@ expand(const char *host, const char *port)
 
     n = getaddrinfo(host, port, &hints, &ai_list);
     if (n != 0) {
-	fprintf(stderr, "%s: %s (skipping %s port %s)\n",
-		progname, gai_strerror(n), host, port);
-	return NULL;
+        fprintf(stderr, "%s: %s (skipping %s port %s)\n",
+                progname, gai_strerror(n), host, port);
+        return NULL;
     }
 
     tp = xcalloc(1, sizeof(target_t));
@@ -266,18 +266,18 @@ expand(const char *host, const char *port)
     tp->port = strdup(port);
 
     for (ai = ai_list, tp->num_endpoints = 0;
-	 ai; ai = ai->ai_next, tp->num_endpoints++) ;
+         ai; ai = ai->ai_next, tp->num_endpoints++) ;
     tp->endpoints = xcalloc(1 + tp->num_endpoints, sizeof(endpoint_t));
 
     for (ai = ai_list, ep = tp->endpoints; ai; ai = ai->ai_next, ep++) {
-	ep->family = ai->ai_family;
-	ep->socktype = ai->ai_socktype;
-	ep->protocol = ai->ai_protocol;
-	memcpy(&ep->addr, ai->ai_addr, ai->ai_addrlen);
-	ep->addrlen = ai->ai_addrlen;
-	ep->values = xcalloc(nqueries, sizeof(unsigned int));
+        ep->family = ai->ai_family;
+        ep->socktype = ai->ai_socktype;
+        ep->protocol = ai->ai_protocol;
+        memcpy(&ep->addr, ai->ai_addr, ai->ai_addrlen);
+        ep->addrlen = ai->ai_addrlen;
+        ep->values = xcalloc(nqueries, sizeof(unsigned int));
     }
-    
+
     freeaddrinfo(ai_list);
 
     return tp;
@@ -298,23 +298,23 @@ generate_fdset(target_t *targets, fd_set *fdset, struct timeval *to)
     endpoint_t *ep;
 
     if (to) {
-	timerclear(to);
+        timerclear(to);
     }
     FD_ZERO(fdset);
     for (tp = targets, max = -1; target_valid(tp); tp = tp->next) {
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	    if (ep->state == EP_STATE_CONNECTING) {
-		FD_SET(ep->socket, fdset);
-		if (ep->socket > max) {
-		    max = ep->socket;
-		}
-		if (to) {
-		    if (! timerisset(to) || timercmp(&ep->tvs, to, <)) {
-			*to = ep->tvs;
-		    }
-		}
-	    }
-	}
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+            if (ep->state == EP_STATE_CONNECTING) {
+                FD_SET(ep->socket, fdset);
+                if (ep->socket > max) {
+                    max = ep->socket;
+                }
+                if (to) {
+                    if (! timerisset(to) || timercmp(&ep->tvs, to, <)) {
+                        *to = ep->tvs;
+                    }
+                }
+            }
+        }
     }
 
     return max;
@@ -337,49 +337,49 @@ update(target_t *targets, fd_set *fdset)
     unsigned int us;
 
     assert(targets && fdset);
-    
+
     (void) gettimeofday(&tv, NULL);
-    
+
     for (tp = targets; target_valid(tp); tp = tp->next) {
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	    /* calculate time since we started the connect */
-	    timersub(&tv, &ep->tvs, &td);
-	    us = td.tv_sec*1000000 + td.tv_usec;
-	    if (ep->state == EP_STATE_CONNECTING && us >= timeout * 1000) {
-		ep->values[ep->idx] = -us;
-		ep->idx++;
-		ep->cnt++;
-		(void) close(ep->socket);
-		ep->socket = 0;
-		ep->state = EP_STATE_TIMEDOUT;
-		continue;
-	    }
-	    if (ep->state == EP_STATE_CONNECTING
-		&& FD_ISSET(ep->socket, fdset)) {
-		if (-1 == getsockopt(ep->socket, SOL_SOCKET, SO_ERROR,
-				     &soerror, &soerrorlen)) {
-		    fprintf(stderr, "%s: getsockopt: %s\n",
-			    progname, strerror(errno));
-		    exit(EXIT_FAILURE);
-		}
-		if (! soerror) {
-		    ep->values[ep->idx] = us;
-		    ep->sum += us;
-		    ep->tot++;
-		    ep->cnt++;
-		    ep->idx++;
-		} else {
-		    ep->values[ep->idx] = -us;
-		    ep->cnt++;
-		    ep->idx++;
-		}
-		if (! pmode) {
-		    (void) close(ep->socket);
-		    ep->socket = 0;
-		}
-		ep->state = EP_STATE_CONNECTED;
-	    }
-	}
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+            /* calculate time since we started the connect */
+            timersub(&tv, &ep->tvs, &td);
+            us = td.tv_sec*1000000 + td.tv_usec;
+            if (ep->state == EP_STATE_CONNECTING && us >= timeout * 1000) {
+                ep->values[ep->idx] = -us;
+                ep->idx++;
+                ep->cnt++;
+                (void) close(ep->socket);
+                ep->socket = 0;
+                ep->state = EP_STATE_TIMEDOUT;
+                continue;
+            }
+            if (ep->state == EP_STATE_CONNECTING
+                && FD_ISSET(ep->socket, fdset)) {
+                if (-1 == getsockopt(ep->socket, SOL_SOCKET, SO_ERROR,
+                                     &soerror, &soerrorlen)) {
+                    fprintf(stderr, "%s: getsockopt: %s\n",
+                            progname, strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+                if (! soerror) {
+                    ep->values[ep->idx] = us;
+                    ep->sum += us;
+                    ep->tot++;
+                    ep->cnt++;
+                    ep->idx++;
+                } else {
+                    ep->values[ep->idx] = -us;
+                    ep->cnt++;
+                    ep->idx++;
+                }
+                if (! pmode) {
+                    (void) close(ep->socket);
+                    ep->socket = 0;
+                }
+                ep->state = EP_STATE_CONNECTED;
+            }
+        }
     }
 }
 
@@ -410,77 +410,77 @@ prepare(target_t *targets)
     dd.tv_usec = (delay % 1000) * 1000;
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 
-	    if (delay) {
-		int max;
-		struct timeval to;
-		
-		(void) gettimeofday(&dts, NULL);
-		
-		while (1) {
-		    max = generate_fdset(targets, &fdset, NULL);
-		    
-		    (void) gettimeofday(&dtn, NULL);
-		    timersub(&dtn, &dts, &dtd);
-		    if (timercmp(&dd, &dtd, <)) {
-			break;
-		    }
-		    
-		    timeradd(&dts, &dd, &to);
-		    timersub(&to, &dtn, &to);
-		    rc = select(1 + max, NULL, &fdset, NULL, &to);
-		    if (rc == -1) {
-			fprintf(stderr, "%s: select failed: %s\n",
-				progname, strerror(errno));
-			exit(EXIT_FAILURE);
-		    }
-		    update(targets, &fdset);
-		}
-	    }
+            if (delay) {
+                int max;
+                struct timeval to;
 
-	    ep->socket = socket(ep->family, ep->socktype, ep->protocol);
-	    if (ep->socket < 0) {
-		switch (errno) {
-		case EAFNOSUPPORT:
-		case EPROTONOSUPPORT:
-		    continue;
-		    
-		default:
-		    fprintf(stderr, "%s: socket: %s (skipping %s port %s)\n",
-			    progname, strerror(errno), tp->host, tp->port);
-		    ep->socket = 0;
-		    ep->state = EP_STATE_FAILED;
-		    continue;
-		}
-	    }
-	    
-	    flags = fcntl(ep->socket, F_GETFL, 0);
-	    if (fcntl(ep->socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-		fprintf(stderr, "%s: fcntl: %s (skipping %s port %s)\n",
-			progname, strerror(errno), tp->host, tp->port);
-		(void) close(ep->socket);
-		ep->socket = 0;
-		ep->state = EP_STATE_FAILED;
-		continue;
-	    }
+                (void) gettimeofday(&dts, NULL);
 
-	    if (connect(ep->socket, 
-			(struct sockaddr *) &ep->addr,
-			ep->addrlen) == -1) {
-		if (errno != EINPROGRESS) {
-		    fprintf(stderr, "%s: connect: %s (skipping %s port %s)\n",
-			    progname, strerror(errno), tp->host, tp->port);
-		    (void) close(ep->socket);
-		    ep->socket = 0;
-		    ep->state = EP_STATE_FAILED;
-		    continue;
-		}
-	    }
+                while (1) {
+                    max = generate_fdset(targets, &fdset, NULL);
 
-	    ep->state = EP_STATE_CONNECTING;	    
-	    (void) gettimeofday(&ep->tvs, NULL);
-	}
+                    (void) gettimeofday(&dtn, NULL);
+                    timersub(&dtn, &dts, &dtd);
+                    if (timercmp(&dd, &dtd, <)) {
+                        break;
+                    }
+
+                    timeradd(&dts, &dd, &to);
+                    timersub(&to, &dtn, &to);
+                    rc = select(1 + max, NULL, &fdset, NULL, &to);
+                    if (rc == -1) {
+                        fprintf(stderr, "%s: select failed: %s\n",
+                                progname, strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                    update(targets, &fdset);
+                }
+            }
+
+            ep->socket = socket(ep->family, ep->socktype, ep->protocol);
+            if (ep->socket < 0) {
+                switch (errno) {
+                    case EAFNOSUPPORT:
+                    case EPROTONOSUPPORT:
+                        continue;
+
+                    default:
+                        fprintf(stderr, "%s: socket: %s (skipping %s port %s)\n",
+                                progname, strerror(errno), tp->host, tp->port);
+                        ep->socket = 0;
+                        ep->state = EP_STATE_FAILED;
+                        continue;
+                }
+            }
+
+            flags = fcntl(ep->socket, F_GETFL, 0);
+            if (fcntl(ep->socket, F_SETFL, flags | O_NONBLOCK) == -1) {
+                fprintf(stderr, "%s: fcntl: %s (skipping %s port %s)\n",
+                        progname, strerror(errno), tp->host, tp->port);
+                (void) close(ep->socket);
+                ep->socket = 0;
+                ep->state = EP_STATE_FAILED;
+                continue;
+            }
+
+            if (connect(ep->socket,
+                        (struct sockaddr *) &ep->addr,
+                        ep->addrlen) == -1) {
+                if (errno != EINPROGRESS) {
+                    fprintf(stderr, "%s: connect: %s (skipping %s port %s)\n",
+                            progname, strerror(errno), tp->host, tp->port);
+                    (void) close(ep->socket);
+                    ep->socket = 0;
+                    ep->state = EP_STATE_FAILED;
+                    continue;
+                }
+            }
+
+            ep->state = EP_STATE_CONNECTING;
+            (void) gettimeofday(&ep->tvs, NULL);
+        }
     }
 }
 
@@ -502,33 +502,33 @@ collect(target_t *targets)
 
     while (1) {
 
-	if (timeout) {
-	    to.tv_sec = timeout / 1000;
-	    to.tv_usec = (timeout % 1000) * 1000;
-	}
-	
-	max = generate_fdset(targets, &fdset, timeout ? &ts : NULL);
-	if (max == -1) {
-	    break;
-	}
+        if (timeout) {
+            to.tv_sec = timeout / 1000;
+            to.tv_usec = (timeout % 1000) * 1000;
+        }
 
-	if (timeout) {
-	    (void) gettimeofday(&tn, NULL);
-	    timeradd(&ts, &to, &to);
-	    timersub(&to, &tn, &to);
-	}
-	
-	rc = select(1 + max, NULL, &fdset, NULL, timeout ? &to : NULL);
-	if (rc == -1) {
-	    fprintf(stderr, "%s: select failed: %s\n",
-		    progname, strerror(errno));
-	    exit(EXIT_FAILURE);
-	}
-	
-	update(targets, &fdset);
+        max = generate_fdset(targets, &fdset, timeout ? &ts : NULL);
+        if (max == -1) {
+            break;
+        }
+
+        if (timeout) {
+            (void) gettimeofday(&tn, NULL);
+            timeradd(&ts, &to, &to);
+            timersub(&to, &tn, &to);
+        }
+
+        rc = select(1 + max, NULL, &fdset, NULL, timeout ? &to : NULL);
+        if (rc == -1) {
+            fprintf(stderr, "%s: select failed: %s\n",
+                    progname, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+
+        update(targets, &fdset);
     }
 }
-    
+
 /*
  * Sort the results for each target. This is in particular useful for
  * interactive usage.
@@ -541,13 +541,13 @@ cmp(const void *a, const void *b)
     endpoint_t *pb = (endpoint_t *) b;
 
     if (! pa->tot || ! pb->tot) {
-	return 0;
+        return 0;
     }
 
     if (pa->sum/pa->tot < pb->sum/pb->tot) {
-	return -1;
+        return -1;
     } else if (pa->sum/pa->tot > pb->sum/pb->tot) {
-	return 1;
+        return 1;
     }
     return 0;
 }
@@ -561,9 +561,9 @@ sort(target_t *targets)
     assert(targets);
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
-	if (tp->endpoints) {
-	    qsort(tp->endpoints, tp->num_endpoints, sizeof(*ep), cmp);
-	}
+        if (tp->endpoints) {
+            qsort(tp->endpoints, tp->num_endpoints, sizeof(*ep), cmp);
+        }
     }
 }
 
@@ -586,33 +586,33 @@ report(target_t *targets)
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
-	printf("%s%s:%s\n",
-	       (tp != targets) ? "\n" : "", tp->host, tp->port);
+        printf("%s%s:%s\n",
+               (tp != targets) ? "\n" : "", tp->host, tp->port);
 
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	
-	    n = getnameinfo((struct sockaddr *) &ep->addr,
-			    ep->addrlen,
-			    host, sizeof(host), serv, sizeof(serv),
-			    NI_NUMERICHOST | NI_NUMERICSERV);
-	    if (n) {
-		fprintf(stderr, "%s: getnameinfo: %s\n",
-			progname, gai_strerror(n));
-		continue;
-	    }
-	    printf(" %s%n", host, &len);
-	    printf("%*s", (42-len), "");
-	    for (i = 0; i < ep->idx; i++) {
-		if (ep->values[i] >= 0) {
-		    printf(" %4u.%03u",
-			   ep->values[i] / 1000,
-			   ep->values[i] % 1000);
-		} else {
-		    printf("     *   ");
-		}
-	    }
-	    printf("\n");
-	}
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+
+            n = getnameinfo((struct sockaddr *) &ep->addr,
+                            ep->addrlen,
+                            host, sizeof(host), serv, sizeof(serv),
+                            NI_NUMERICHOST | NI_NUMERICSERV);
+            if (n) {
+                fprintf(stderr, "%s: getnameinfo: %s\n",
+                        progname, gai_strerror(n));
+                continue;
+            }
+            printf(" %s%n", host, &len);
+            printf("%*s", (42-len), "");
+            for (i = 0; i < ep->idx; i++) {
+                if (ep->values[i] >= 0) {
+                    printf(" %4u.%03u",
+                           ep->values[i] / 1000,
+                           ep->values[i] % 1000);
+                } else {
+                    printf("     *   ");
+                }
+            }
+            printf("\n");
+        }
     }
 }
 
@@ -634,29 +634,29 @@ report_pump(target_t *targets)
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
-	printf("%s%s:%s\n",
-	       (tp != targets) ? "\n" : "", tp->host, tp->port);
+        printf("%s%s:%s\n",
+               (tp != targets) ? "\n" : "", tp->host, tp->port);
 
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	    n = getnameinfo((struct sockaddr *) &ep->addr,
-			    ep->addrlen,
-			    host, sizeof(host), serv, sizeof(serv),
-			    NI_NUMERICHOST | NI_NUMERICSERV);
-	    if (n) {
-		fprintf(stderr, "%s: getnameinfo: %s\n",
-			progname, gai_strerror(n));
-		continue;
-	    }
-	    printf(" %s%n", host, &len);
-	    printf("%*s", (42-len), "");
-	    printf(" %4u.%03u [sent]",
-		   ep->send / pump_timeout * 1000 / 1000,
-		   ep->send / pump_timeout * 1000 % 1000);
-	    printf(" %4u.%03u [rcvd]",
-		   ep->rcvd / pump_timeout * 1000 / 1000,
-		   ep->rcvd / pump_timeout * 1000 % 1000);
-	    printf("\n");
-	}
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+            n = getnameinfo((struct sockaddr *) &ep->addr,
+                            ep->addrlen,
+                            host, sizeof(host), serv, sizeof(serv),
+                            NI_NUMERICHOST | NI_NUMERICSERV);
+            if (n) {
+                fprintf(stderr, "%s: getnameinfo: %s\n",
+                        progname, gai_strerror(n));
+                continue;
+            }
+            printf(" %s%n", host, &len);
+            printf("%*s", (42-len), "");
+            printf(" %4u.%03u [sent]",
+                   ep->send / pump_timeout * 1000 / 1000,
+                   ep->send / pump_timeout * 1000 % 1000);
+            printf(" %4u.%03u [rcvd]",
+                   ep->rcvd / pump_timeout * 1000 / 1000,
+                   ep->rcvd / pump_timeout * 1000 % 1000);
+            printf("\n");
+        }
     }
 }
 
@@ -681,25 +681,25 @@ report_sk(target_t *targets)
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 
-	    n = getnameinfo((struct sockaddr *) &ep->addr,
-			    ep->addrlen,
-			    host, sizeof(host), serv, sizeof(serv),
-			    NI_NUMERICHOST | NI_NUMERICSERV);
-	    if (n) {
-		fprintf(stderr, "%s: getnameinfo: %s\n",
-			progname, gai_strerror(n));
-		continue;
-	    }
+            n = getnameinfo((struct sockaddr *) &ep->addr,
+                            ep->addrlen,
+                            host, sizeof(host), serv, sizeof(serv),
+                            NI_NUMERICHOST | NI_NUMERICSERV);
+            if (n) {
+                fprintf(stderr, "%s: getnameinfo: %s\n",
+                        progname, gai_strerror(n));
+                continue;
+            }
 
-	    printf("HAPPY.0;%lu;%s;%s;%s;%s",
-		   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
-	    for (i = 0; i < ep->idx; i++) {
-		printf(";%d", ep->values[i]);
-	    }
-	    printf("\n");
-	}
+            printf("HAPPY.0;%lu;%s;%s;%s;%s",
+                   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
+            for (i = 0; i < ep->idx; i++) {
+                printf(";%d", ep->values[i]);
+            }
+            printf("\n");
+        }
     }
 }
 
@@ -725,28 +725,28 @@ report_pump_sk(target_t *targets)
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 
-	    n = getnameinfo((struct sockaddr *) &ep->addr,
-			    ep->addrlen,
-			    host, sizeof(host), serv, sizeof(serv),
-			    NI_NUMERICHOST | NI_NUMERICSERV);
-	    if (n) {
-		fprintf(stderr, "%s: getnameinfo: %s\n",
-			progname, gai_strerror(n));
-		continue;
-	    }
+            n = getnameinfo((struct sockaddr *) &ep->addr,
+                            ep->addrlen,
+                            host, sizeof(host), serv, sizeof(serv),
+                            NI_NUMERICHOST | NI_NUMERICSERV);
+            if (n) {
+                fprintf(stderr, "%s: getnameinfo: %s\n",
+                        progname, gai_strerror(n));
+                continue;
+            }
 
-	    printf("PUMP.0;%lu;%s;%s;%s;%s",
-		   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
-	    printf(";%u.%03u",
-		   ep->send / pump_timeout * 1000 / 1000,
-		   ep->send / pump_timeout * 1000 % 1000);
-	    printf(";%u.%03u",
-		   ep->rcvd / pump_timeout * 1000 / 1000,
-		   ep->rcvd / pump_timeout * 1000 % 1000);
-	    printf("\n");
-	}
+            printf("PUMP.0;%lu;%s;%s;%s;%s",
+                   now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
+            printf(";%u.%03u",
+                   ep->send / pump_timeout * 1000 / 1000,
+                   ep->send / pump_timeout * 1000 % 1000);
+            printf(";%u.%03u",
+                   ep->rcvd / pump_timeout * 1000 / 1000,
+                   ep->rcvd / pump_timeout * 1000 % 1000);
+            printf("\n");
+        }
     }
 }
 
@@ -763,19 +763,19 @@ cleanup(target_t *targets)
     assert(targets);
 
     for (tp = targets; target_valid(tp); tp = np) {
-	np = tp->next;
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	    if (ep->socket) {
-		(void) close(ep->socket);
-	    }
-	    if (ep->values) {
-		(void) free(ep->values);
-	    }
-	}
-	if (tp->endpoints) (void) free(tp->endpoints);
-	if (tp->host) (void) free(tp->host);
-	if (tp->port) (void) free(tp->port);
-	(void) free(tp);
+        np = tp->next;
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+            if (ep->socket) {
+                (void) close(ep->socket);
+            }
+            if (ep->values) {
+                (void) free(ep->values);
+            }
+        }
+        if (tp->endpoints) (void) free(tp->endpoints);
+        if (tp->host) (void) free(tp->host);
+        if (tp->port) (void) free(tp->port);
+        (void) free(tp);
     }
 }
 
@@ -797,24 +797,24 @@ import(const char *filename, char **ports)
     } else {
         in = fopen(filename, "r");
         if (! in) {
-	    fprintf(stderr, "%s: fopen: %s\n",
-		    progname, strerror(errno));
+            fprintf(stderr, "%s: fopen: %s\n",
+                    progname, strerror(errno));
             exit(EXIT_FAILURE);
         }
     }
-    
+
     while (fgets(line, sizeof(line), in)) {
-	host = trim(line);
-	if (*host) {
-	    for (j = 0; ports[j]; j++) {
-		append(expand(host, ports[j]));
-	    }
-	}
+        host = trim(line);
+        if (*host) {
+            for (j = 0; ports[j]; j++) {
+                append(expand(host, ports[j]));
+            }
+        }
     }
-    
+
     if (ferror(in)) {
-	fprintf(stderr, "%s: ferror: %s\n",
-		progname, strerror(errno));
+        fprintf(stderr, "%s: ferror: %s\n",
+                progname, strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -833,12 +833,12 @@ static void
 pump(target_t *targets)
 {
     static char const template[] =
-	"GET / HTTP/1.1\r\n"
-	"Host: %s\r\n"
-	"User-Agent: pump/0.1\r\n"
-	"Cache-Control: no-cache\r\n"
-	"Connection: Keep-Alive\r\n"
-	"\r\n";
+    "GET / HTTP/1.1\r\n"
+    "Host: %s\r\n"
+    "User-Agent: pump/0.1\r\n"
+    "Cache-Control: no-cache\r\n"
+    "Connection: Keep-Alive\r\n"
+    "\r\n";
 
     static char *msg;
     target_t *tp, *np;
@@ -852,45 +852,75 @@ pump(target_t *targets)
     assert(targets);
 
     for (tp = targets; target_valid(tp); tp = np) {
-	np = tp->next;
-	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
-	    if (ep->state != EP_STATE_CONNECTED) {
-		continue;
-	    }
-	    msg = malloc(strlen(template)+strlen(tp->host));
-	    if (! msg) {
-		fprintf(stderr, "%s: malloc failed for %s\n",
-			progname, tp->host);
-		continue;
-	    }
-	    snprintf(msg, strlen(template)+strlen(tp->host), template, tp->host);
+        np = tp->next;
+        for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+            if (ep->state != EP_STATE_CONNECTED) {
+                continue;
+            }
+            msg = malloc(strlen(template)+strlen(tp->host));
+            if (! msg) {
+                fprintf(stderr, "%s: malloc failed for %s\n",
+                        progname, tp->host);
+                continue;
+            }
+            snprintf(msg, strlen(template)+strlen(tp->host), template, tp->host);
 
-	    (void) gettimeofday(&ts, NULL);
-	    us = 0;
-	    while (us < pump_timeout * 1000) {
-		FD_ZERO(&rfds);
-		FD_SET(ep->socket, &rfds);
-		FD_ZERO(&wfds);
-		FD_SET(ep->socket, &wfds);
-		rc = select(1 + ep->socket, &rfds, &wfds, NULL, NULL);
-		if (rc == -1) {
-		    fprintf(stderr, "%s: select failed: %s\n",
-			    progname, strerror(errno));
-		    exit(EXIT_FAILURE);
-		}
-		if (FD_ISSET(ep->socket, &rfds)) {
-		    ep->rcvd += read(ep->socket, buffer, sizeof(buffer));
-		}
-		if (FD_ISSET(ep->socket, &wfds)) {
-		    ep->send += write(ep->socket, msg, strlen(msg));
-		}
-		(void) gettimeofday(&tn, NULL);
-		timersub(&tn, &ts, &td);
-		us = td.tv_sec*1000000 + td.tv_usec;
-	    }
+            (void) gettimeofday(&ts, NULL);
+            us = 0;
+            while (us < pump_timeout * 1000) {
+                FD_ZERO(&rfds);
+                FD_SET(ep->socket, &rfds);
+                FD_ZERO(&wfds);
+                FD_SET(ep->socket, &wfds);
+                ssize_t sent = 0;
+                ssize_t received = 0;
+                rc = select(1 + ep->socket, &rfds, &wfds, NULL, NULL);
+                if (rc == -1) {
+                    fprintf(stderr, "%s: select failed: %s\n",
+                            progname, strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
 
-	    free(msg);
-	}
+                if (FD_ISSET(ep->socket, &rfds)) {
+                    received = recv(ep->socket, buffer, sizeof(buffer), 0);
+                    if(received<0) {
+                        fprintf(stderr, "recverr (%s): %s\n", tp->host, strerror(errno));
+                        if (errno == EPIPE) break;
+                    } else {
+                        ep->rcvd += received;
+                    }
+                }
+
+                if (FD_ISSET(ep->socket, &wfds)) {
+                #if defined(__linux__)
+                    sent = send(ep->socket, msg, strlen(msg), MSG_NOSIGNAL);
+                #elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+                    int set = 1;
+                    setsockopt(ep->socket, SOL_SOCKET, SO_NOSIGPIPE,
+                               (void *)&set, sizeof(int));
+                    sent = send(ep->socket, msg, strlen(msg), 0);
+                #else
+                    sent = write(ep->socket, msg, strlen(msg));
+                #endif
+                    if(sent<0) {
+                        fprintf(stderr, "senderr (%s): %s\n", tp->host, strerror(errno));
+                        if (errno == EPIPE) break;
+                    } else {
+                        ep->send += sent;
+                    }
+                }
+
+                (void) gettimeofday(&tn, NULL);
+                timersub(&tn, &ts, &td);
+                us = td.tv_sec*1000000 + td.tv_usec;
+            }
+
+            if (ep->socket) {
+                (void) close(ep->socket);
+            }
+
+            free(msg);
+        }
     }
 }
 
@@ -908,126 +938,126 @@ main(int argc, char *argv[])
     char **ports = def_ports;
 
     while ((c = getopt(argc, argv, "bcd:p:q:f:hmst:")) != -1) {
-	switch (c) {
-	case 'b':
-	    pmode = 1;
-	    break;
-	case 'c':
-	    cmode = 1;
-	    break;
-	case 'd':
-	    {
-	        char *endptr;
-		int num = strtol(optarg, &endptr, 10);
-		if (num >= 0 && *endptr == '\0') {
-		    delay = num;
-		} else {
-		    fprintf(stderr, "%s: invalid argument '%s' "
-			    "for option -d\n", progname, optarg);
-		    exit(EXIT_FAILURE);
-		}
-	    }
-	    break;
-	case 'p':
-	    if (! usr_ports) {
-		usr_ports = xcalloc(argc, sizeof(char *));
-		ports = usr_ports;
-	    }
-	    usr_ports[p++] = optarg;
-	    break;
-	case 'q':
-	    {
-	        char *endptr;
-		int num = strtol(optarg, &endptr, 10);
-		if (num > 0 && *endptr == '\0') {
-		    nqueries = num;
-		} else {
-		    fprintf(stderr, "%s: invalid argument '%s' "
-			    "for option -q\n", progname, optarg);
-		    exit(EXIT_FAILURE);
-		}
-	    }
-	    break;
-	case 'f':
-	    import(optarg, ports);
-	    break;
-	case 'm':
-	    skmode = 1;
-	    break;
-	case 's':
-	    smode = 1;
-	    break;
-	case 't':
-	    {
-		char *endptr;
-		int num = strtol(optarg, &endptr, 10);
-		if (num > 0 && *endptr == '\0') {
-		    timeout = num;
-		} else {
-		    fprintf(stderr, "%s: invalid argument '%s' "
-			    "for option -t\n", progname, optarg);
-		    exit(EXIT_FAILURE);
-		}
-	    }
-	    break;
-	case 'h':
-	default: /* '?' */
-	    fprintf(stderr,
-		    "Usage: %s [-p port] [-q nqueries] "
-		    "[-t timeout] [-d delay ] [-f file] [-s] [-m] [-b] [-c] "
-		    "hostname...\n", progname);
-	    exit(EXIT_FAILURE);
-	}
+        switch (c) {
+            case 'b':
+                pmode = 1;
+                break;
+            case 'c':
+                cmode = 1;
+                break;
+            case 'd':
+            {
+                char *endptr;
+                int num = strtol(optarg, &endptr, 10);
+                if (num >= 0 && *endptr == '\0') {
+                    delay = num;
+                } else {
+                    fprintf(stderr, "%s: invalid argument '%s' "
+                            "for option -d\n", progname, optarg);
+                    exit(EXIT_FAILURE);
+                }
+            }
+                break;
+            case 'p':
+                if (! usr_ports) {
+                    usr_ports = xcalloc(argc, sizeof(char *));
+                    ports = usr_ports;
+                }
+                usr_ports[p++] = optarg;
+                break;
+            case 'q':
+            {
+                char *endptr;
+                int num = strtol(optarg, &endptr, 10);
+                if (num > 0 && *endptr == '\0') {
+                    nqueries = num;
+                } else {
+                    fprintf(stderr, "%s: invalid argument '%s' "
+                            "for option -q\n", progname, optarg);
+                    exit(EXIT_FAILURE);
+                }
+            }
+                break;
+            case 'f':
+                import(optarg, ports);
+                break;
+            case 'm':
+                skmode = 1;
+                break;
+            case 's':
+                smode = 1;
+                break;
+            case 't':
+            {
+                char *endptr;
+                int num = strtol(optarg, &endptr, 10);
+                if (num > 0 && *endptr == '\0') {
+                    timeout = num;
+                } else {
+                    fprintf(stderr, "%s: invalid argument '%s' "
+                            "for option -t\n", progname, optarg);
+                    exit(EXIT_FAILURE);
+                }
+            }
+                break;
+            case 'h':
+            default: /* '?' */
+                fprintf(stderr,
+                        "Usage: %s [-p port] [-q nqueries] "
+                        "[-t timeout] [-d delay ] [-f file] [-s] [-m] [-b] [-c] "
+                        "hostname...\n", progname);
+                exit(EXIT_FAILURE);
+        }
     }
     argc -= optind;
     argv += optind;
 
     if (! cmode && ! pmode) {
-	cmode = 1;
+        cmode = 1;
     }
-    
+
     for (i = 0; i < argc; i++) {
-	for (j = 0; ports[j]; j++) {
-	    append(expand(argv[i], ports[j]));
-	}
+        for (j = 0; ports[j]; j++) {
+            append(expand(argv[i], ports[j]));
+        }
     }
 
     if (targets) {
-	for (i = 0; i < nqueries; i++) {
-	    prepare(targets);
-	    collect(targets);
-	}
-	if (smode) {
-	    sort(targets);
-	}
-	if (pmode) {
-	    pump(targets);
-	}
-	lock(stdout);
-	if (cmode) {
-	    if (skmode) {
-		report_sk(targets);
-	    } else {
-		report(targets);
-	    }
-	}
-	if (pmode) {
-	    if (skmode) {
-		report_pump_sk(targets);
-	    } else {
-		if (cmode) {
-		    printf("\n");
-		}
-		report_pump(targets);
-	    }
-	}
-	unlock(stdout);
-	cleanup(targets);
+        for (i = 0; i < nqueries; i++) {
+            prepare(targets);
+            collect(targets);
+        }
+        if (smode) {
+            sort(targets);
+        }
+        if (pmode) {
+            pump(targets);
+        }
+        lock(stdout);
+        if (cmode) {
+            if (skmode) {
+                report_sk(targets);
+            } else {
+                report(targets);
+            }
+        }
+        if (pmode) {
+            if (skmode) {
+                report_pump_sk(targets);
+            } else {
+                if (cmode) {
+                    printf("\n");
+                }
+                report_pump(targets);
+            }
+        }
+        unlock(stdout);
+        cleanup(targets);
     }
-	
+
     if (usr_ports) {
-	(void) free(usr_ports);
+        (void) free(usr_ports);
     }
-    
+
     return EXIT_SUCCESS;
 }
