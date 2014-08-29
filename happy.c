@@ -851,6 +851,9 @@ pump(target_t *targets)
 
     assert(targets);
 
+    /* ignore SIGPIPE, handle locally the returned EPIPE error */
+    signal(SIGPIPE, SIG_IGN);
+
     for (tp = targets; target_valid(tp); tp = np) {
         np = tp->next;
         for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
@@ -892,16 +895,7 @@ pump(target_t *targets)
                 }
 
                 if (FD_ISSET(ep->socket, &wfds)) {
-                #if defined(__linux__)
-                    sent = send(ep->socket, msg, strlen(msg), MSG_NOSIGNAL);
-                #elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
-                    int set = 1;
-                    setsockopt(ep->socket, SOL_SOCKET, SO_NOSIGPIPE,
-                               (void *)&set, sizeof(int));
                     sent = send(ep->socket, msg, strlen(msg), 0);
-                #else
-                    sent = write(ep->socket, msg, strlen(msg));
-                #endif
                     if(sent<0) {
                         fprintf(stderr, "senderr (%s): %s\n", tp->host, strerror(errno));
                         if (errno == EPIPE) break;
