@@ -61,12 +61,14 @@ Author:
 -------
 
 - Juergen Schoenwaelder <j.schoenwaelder AT jacobs‐university.de>
+- Vaibhav Bajpai <v.bajpai AT jacobs‐university.de>
 
 
 License:
 --------
 
     Copyright (c) 2013, Juergen Schoenwaelder, Jacobs University Bremen
+    Copyright (c) 2014, Vaibhav Bajpai, Jacobs University Bremen
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
