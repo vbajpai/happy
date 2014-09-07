@@ -48,6 +48,17 @@ all the options available in detail.
 You can either fork the bleeding edge development version or download a
 release from [here &rarr;](https://github.com/vbajpai/happy/releases)
 
+### Measurement Trials
+
+We are currently running `happy` from a small sample of vantage points
+distributed all around the globe. In order to participate in this
+experiment, send us an email and we will ship you a SamKnows probe that
+in addition to the standard SamKnows tests will also perform the `happy`
+test from your vantage point.
+
+![](http://i.imgur.com/WEisgJg.jpg)
+<br/>
+
 ### Publications
 
 [Measuring TCP Connection Establishment Times of Dual-Stacked Web
@@ -66,7 +77,7 @@ Internet Draft (I-D), July 2013
 Vaibhav Bajpai and Jürgen Schönwälder  
 RIPE Labs, June 2013
 
-### Invited Talks
+### Talks
 
 [Measuring TCP Connection Establishment Times of Dual-Stacked Web
 Services
@@ -99,10 +110,12 @@ allowfullscreen></iframe>
 ### Authors
 
 - Jürgen Schönwälder [j.schoenwaelder@jacobs-university.de](j.schoenwaelder@jacobs-university.de)
+- Vaibhav Bajpai [v.bajpai@jacobs-university.de](v.bajpai@jacobs-university.de)
 
 ### License
 <pre>
 Copyright (c) 2013, Juergen Schoenwaelder, Jacobs University Bremen
+Copyright (c) 2014, Vaibhav Bajpai, Jacobs University Bremen
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
