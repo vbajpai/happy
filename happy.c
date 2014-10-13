@@ -78,6 +78,8 @@ typedef struct endpoint {
     int protocol;
     struct sockaddr_storage addr;
     socklen_t addrlen;
+    char *canonname;
+    char *reversename;
 
     int socket;
     struct timeval tvs;
@@ -103,6 +105,7 @@ typedef struct target {
 
 static target_t *targets = NULL;
 
+static int dmode = 0;
 static int pmode = 0;
 static int cmode = 0;
 static int smode = 0;
@@ -253,6 +256,9 @@ expand(const char *host, const char *port)
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
+    if (dmode) {
+	hints.ai_flags |= AI_CANONNAME;
+    }
 
     n = getaddrinfo(host, port, &hints, &ai_list);
     if (n != 0) {
@@ -276,6 +282,23 @@ expand(const char *host, const char *port)
 	memcpy(&ep->addr, ai->ai_addr, ai->ai_addrlen);
 	ep->addrlen = ai->ai_addrlen;
 	ep->values = xcalloc(nqueries, sizeof(unsigned int));
+	if (dmode) {
+	    char host[NI_MAXHOST];
+	    int n;
+	    host[0] = 0;
+	    ep->canonname = strdup(ai->ai_canonname);
+	    n = getnameinfo(ai->ai_addr, ai->ai_addrlen,
+			    host, sizeof(host), NULL, 0,
+			    NI_NAMEREQD);
+	    if (n && n != EAI_NONAME) {
+		fprintf(stderr, "%s: getnameinfo: %s\n",
+			progname, gai_strerror(n));
+	    } else {
+		if (strlen(host)) {
+		    ep->reversename = strdup(host);
+		}
+	    }
+	}
     }
     
     freeaddrinfo(ai_list);
@@ -661,6 +684,46 @@ report_pump(target_t *targets)
 }
 
 /*
+ * Report the dns results. For each endpoint of a target, we show the
+ * canonical name and the reverse name.
+ */
+
+static void
+report_dns(target_t *targets)
+{
+    int n, len;
+    char host[NI_MAXHOST];
+    char serv[NI_MAXSERV];
+    target_t *tp;
+    endpoint_t *ep;
+
+    assert(targets);
+
+    for (tp = targets; target_valid(tp); tp = tp->next) {
+
+	printf("%s%s:%s\n",
+	       (tp != targets) ? "\n" : "", tp->host, tp->port);
+
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+	    n = getnameinfo((struct sockaddr *) &ep->addr,
+			    ep->addrlen,
+			    host, sizeof(host), serv, sizeof(serv),
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+	    if (n) {
+		fprintf(stderr, "%s: getnameinfo: %s\n",
+			progname, gai_strerror(n));
+		continue;
+	    }
+	    printf(" %s > %s%n", ep->canonname, host, &len);
+	    if (ep->reversename) {
+		printf(" > %s", ep->reversename);
+	    }
+	    printf("\n");
+	}
+    }
+}
+
+/*
  * Report the results. This function produces a more compact semicolon
  * separated output format intended for consumption by other programs.
  */
@@ -751,6 +814,49 @@ report_pump_sk(target_t *targets)
 }
 
 /*
+ * Report the dns results. This function produces a more compact
+ * semicolon separated output format intended for consumption by other
+ * programs.
+ */
+
+static void
+report_dns_sk(target_t *targets)
+{
+    int n;
+    char host[NI_MAXHOST];
+    char serv[NI_MAXSERV];
+    target_t *tp;
+    endpoint_t *ep;
+    time_t now;
+
+    assert(targets);
+
+    now = time(NULL);
+
+    for (tp = targets; target_valid(tp); tp = tp->next) {
+
+	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
+
+	    n = getnameinfo((struct sockaddr *) &ep->addr,
+			    ep->addrlen,
+			    host, sizeof(host), serv, sizeof(serv),
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+	    if (n) {
+		fprintf(stderr, "%s: getnameinfo: %s\n",
+			progname, gai_strerror(n));
+		continue;
+	    }
+
+	    printf("DNS.0;%lu;%s;%s;%s;%s;%s",
+		   now, ep->cnt ? "OK" : "FAIL", tp->host, host,
+		   ep->canonname ? ep->canonname : "",
+		   ep->reversename ? ep->reversename : "");
+	    printf("\n");
+	}
+    }
+}
+
+/*
  * Cleanup targets and release all target data structures.
  */
 
@@ -770,6 +876,12 @@ cleanup(target_t *targets)
 	    }
 	    if (ep->values) {
 		(void) free(ep->values);
+	    }
+	    if (ep->canonname) {
+		(void) free(ep->canonname);
+	    }
+	    if (ep->reversename) {
+		(void) free(ep->reversename);
 	    }
 	}
 	if (tp->endpoints) (void) free(tp->endpoints);
@@ -907,8 +1019,11 @@ main(int argc, char *argv[])
     char **usr_ports = NULL;
     char **ports = def_ports;
 
-    while ((c = getopt(argc, argv, "bcd:p:q:f:hmst:")) != -1) {
+    while ((c = getopt(argc, argv, "abcd:p:q:f:hmst:")) != -1) {
 	switch (c) {
+	case 'a':
+	    dmode = 1;
+	    break;
 	case 'b':
 	    pmode = 1;
 	    break;
@@ -982,7 +1097,7 @@ main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    if (! cmode && ! pmode) {
+    if (! cmode && ! pmode && !dmode) {
 	cmode = 1;
     }
     
@@ -1004,10 +1119,20 @@ main(int argc, char *argv[])
 	    pump(targets);
 	}
 	lock(stdout);
+	if (dmode) {
+	    if (skmode) {
+		report_dns_sk(targets);
+	    } else {
+		report_dns(targets);
+	    }
+	}
 	if (cmode) {
 	    if (skmode) {
 		report_sk(targets);
 	    } else {
+		if (dmode) {
+		    printf("\n");
+		}
 		report(targets);
 	    }
 	}

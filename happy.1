@@ -4,27 +4,33 @@
 .SH NAME
 happy \- happy eyeballs probing tool
 .SH SYNOPSIS
-.BR happy " [" \-ms "] [" "\-p port" "] [" "\-q nqueries" "] [" "\-t timeout" "] [" "\-d delay" "] [" "\-f file" "] " target "..."
+.BR happy " [" \-abcms "] [" "\-p port" "] [" "\-q nqueries" "] [" "\-t timeout" "] [" "\-d delay" "] [" "\-f file" "] " target "..."
 .SH DESCRIPTION
 .I happy
-is a simple TCP happy eyeballs probing tool. It uses non-blocking
-connect() calls to establish connections concurrently to a number of
-possible endpoints. This tool is particularly useful to determine
-whether happy eyeball applications will use IPv4 or IPv6 if both are
-available.
+is a TCP happy eyeballs probing tool. It uses non-blocking connect()
+calls to establish connections concurrently to a number of possible
+endpoints. This tool is particularly useful to determine whether happy
+eyeball applications will use IPv4 or IPv6 if both are available.
 .PP
-A common usage is in combination with watch(1):
+A common interactive usage is in combination with watch(1):
 .PP
 watch -d -- happy -s www.google.com www.bing.com www.yahoo.com
 .SH OPTIONS
 .TP
+.B -a
+Generate detailed information about the name resolution. For each
+endpoint of a target, list the canonical name and the reverse mapping
+of the endpoint.
+.TP
 .B -b
-Send a sequence of HTTP requests in order to determine the data rate
-at which the server returns responses.
+For each endpoint of a target, send a sequence of HTTP requests in
+order to determine the data rate at which the server returns
+responses.
 .TP
 .B -c
-Measure the connection establishment time using non-blocking connect()
-calls. This is the default if no other measurements are selected.
+Measure the connection establishment time to each endpoint of a target
+using non-blocking connect() calls. This is the default if no other
+measurements are selected.
 .TP
 .BI \-d " delay"
 Set the delay between TCP connection attempts to
@@ -49,7 +55,7 @@ The first value is the string HAPPY.0 (indicates happy version 0). The
 second value is a timestamp (seconds since 1970-01-01) indicating when
 this test was executed. The third value indicates whether the test for
 this particular endpoint was successfully executed (OK) or whether the
-test could not be executes (FAIL), e.g., because the program did run
+test could not be executed (FAIL), e.g., because the program did run
 out of socket descriptors. Values four and five indicate the target
 name and port number while the sixth value carries the IP address of
 the endpoint. The remaining values report the measured connection
@@ -57,23 +63,40 @@ establishment time (in microseconds) or the recorded timeout time (in
 negative microseconds). As such, it is important to pay attention to
 sign of the values.
 
-It the -b option is used, then the machine readable output will also
+It the -b option is used, then the machine readable output will
 contain lines that list the data rate measured. An example might look
 like this:
 
 PUMP.0;1388237987;OK;www.ietf.org;80;2001:1900:3001:11::2c;109.000;151.000
 PUMP.0;1388237987;OK;www.ietf.org;80;4.31.198.44;118.000;561.000
 
-The first value is the string HAPPY.0 (indicates happy version 0). The
+The first value is the string PUMP.0 (indicates pump version 0). The
 second value is a timestamp (seconds since 1970-01-01) indicating when
 this test was executed. The third value indicates whether the test for
 this particular endpoint was successfully executed (OK) or whether the
-test could not be executes (FAIL), e.g., because the program did run
+test could not be executed (FAIL), e.g., because the program did run
 out of socket descriptors. Values four and five indicate the target
 name and port number while the sixth value carries the IP address of
 the endpoint. The remaining values report the number of bytes per
 second pumped to the web server and the number of bytes per second
 received from the web server.
+
+If the -a option is used, then the machine readable output will
+contain lines that show detailed information about the DNS resolution.
+An example might look like this:
+
+DNS.0;1413040293;OK;www.facebook.com;2a03:2880:f01c:d01:face:b00c::1;star.c10r.facebook.com;edge-star6-shv-14-fra3.facebook.com
+DNS.0;1413040293;OK;www.facebook.com;173.252.120.6;star.c10r.facebook.com;edge-star-shv-12-frc3.facebook.com
+
+The first value is the string DNS.0 (indicates dns version 0). The
+second value is a timestamp (seconds since 1970-01-01) indicating when
+this test was executed. The third value indicates whether the test for
+this particular endpoint was successfully executed (OK) or whether the
+test could not be executed (FAIL). Values four and five indicate the
+target name and the associated endpoint. The sixth value is canonical
+name (if any) and the last value shows the reverse name for the
+endpoint.
+
 .TP
 .B -s
 Sort the results for all endpoints of a given target. Sorting is based

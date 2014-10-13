@@ -9,11 +9,13 @@ portable. However, patches that improve portability of fix bugs are
 always welcome.
 
 Build and Usage:
--------------------
+----------------
 
-
+    $ mkdir builddir
+    $ cd builddir
+    $ cmake ..
     $ make
-    $ bin/happy ‐s www.google.com www.bing.com www.yahoo.com
+    $ ./happy ‐s www.google.com www.bing.com www.yahoo.com
     www.google.com:80
      2a00:1450:4008:c01::69                       9.255   10.124    9.502
      173.194.69.147                               8.918    9.493    9.253
@@ -62,11 +64,10 @@ Author:
 
 - Juergen Schoenwaelder <j.schoenwaelder AT jacobs‐university.de>
 
-
 License:
 --------
 
-    Copyright (c) 2013, Juergen Schoenwaelder, Jacobs University Bremen
+    Copyright (c) 2013-2014, Juergen Schoenwaelder, Jacobs University Bremen
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
