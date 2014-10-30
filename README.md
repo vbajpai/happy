@@ -15,40 +15,49 @@ Build and Usage:
     $ cd builddir
     $ cmake ..
     $ make
-    $ ./happy ‐s www.google.com www.bing.com www.yahoo.com
-    www.google.com:80
-     2a00:1450:4008:c01::69                       9.255   10.124    9.502
-     173.194.69.147                               8.918    9.493    9.253
-     173.194.69.99                                9.879    9.139   10.099
-     173.194.69.104                               9.544    9.503    9.802
-     173.194.69.105                               9.245    8.989   10.108
-     173.194.69.106                              10.111    9.533    9.798
-     173.194.69.103                               9.514    9.553    8.882
+    $ make install
+
+    $ happy -ac www.ietf.org www.facebook.com www.bing.com
+    www.ietf.org:80
+     www.ietf.org.cdn.cloudflare.net > 2400:cb00:2048:1::6814:155
+     www.ietf.org.cdn.cloudflare.net > 2400:cb00:2048:1::6814:55
+     www.ietf.org.cdn.cloudflare.net > 104.20.1.85
+     www.ietf.org.cdn.cloudflare.net > 104.20.0.85
+
+    www.facebook.com:80
+     star.c10r.facebook.com > 2a03:2880:f01c:d01:face:b00c::1 >
+    edge-star6-shv-14-fra3.facebook.com
+     star.c10r.facebook.com > 31.13.93.241 >
+    edge-star-shv-14-fra3.facebook.com
 
     www.bing.com:80
-     2001:638:a:2::d4c9:6487                      4.010    3.409    4.019
-     2001:638:a:2::d4c9:6490                      3.093    3.706    3.756
-     212.201.100.135                              3.400    3.397    4.004
-     212.201.100.144                              2.785    3.401    4.324
+     any.edge.bing.com > 204.79.197.200 > a-0001.a-msedge.net
 
-    www.yahoo.com:80
-     2a00:1288:f006:1fe::3000                    16.270   17.734   16.828
-     2a00:1288:f006:1fe::3001                    16.915   18.187   16.778
-     2a00:1288:f00e:1fe::3000                    23.652   24.379   23.620
-     2a00:1288:f00e:1fe::3001                    24.201   23.568   23.079
-     87.248.122.122                              29.487   24.177   29.546
-     87.248.112.181                              42.895   48.629   42.784
+    www.ietf.org:80
+     2400:cb00:2048:1::6814:155                   8.297    8.411    8.759
+     2400:cb00:2048:1::6814:55                    8.573    8.767    8.573
+     104.20.1.85                                 12.824   14.677   14.584
+     104.20.0.85                                 12.794   14.573   12.746
+
+    www.facebook.com:80
+     2a03:2880:f01c:d01:face:b00c::1              8.678    8.471    8.902
+     31.13.93.241                                 9.268    8.441    8.285
+
+    www.bing.com:80
+     204.79.197.200                              24.434   26.091   26.309
+
 
 Options:
 --------
 
-    $ bin/happy -h
-    Usage: happy [-p port] [-q nqueries] [-t timeout] [-d delay ] \
-                 [-f file] [-s] [-m] hostname
+    % happy -h
+    Usage: happy [-a] [-b] [-c] [-p port] [-q nqueries] [-t timeout] [-d
+    delay ] [-f file] [-s] [-m] hostname...
+
 
 The description of each option is available in the man page:
 
-    $ nroff -man happy.1 | less
+    $ man happy
 
 Limitations:
 -----------
