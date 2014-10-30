@@ -49,6 +49,7 @@
 #include <assert.h>
 #include <time.h>
 #include <ctype.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -287,7 +288,16 @@ expand(const char *host, const char *port)
 	    char host[NI_MAXHOST];
 	    int n;
 	    host[0] = 0;
-	    ep->canonname = strdup(ai->ai_canonname);
+      if (ai->ai_canonname != NULL) {
+      ep->canonname = strdup(ai->ai_canonname);
+      } else {
+        if (ai_list->ai_canonname != NULL) {
+          ep->canonname = strdup(ai_list->ai_canonname);
+        } else {
+          ep->canonname = strdup(host);
+        }
+      }
+
 	    n = getnameinfo(ai->ai_addr, ai->ai_addrlen,
 			    host, sizeof(host), NULL, 0,
 			    NI_NAMEREQD);
