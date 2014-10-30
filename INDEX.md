@@ -28,18 +28,12 @@ all the options available in detail.
  
     $ make
     $ make install
-    $ happy -ac www.ietf.org www.facebook.com www.bing.com
+    $ happy -ac www.ietf.org www.bing.com
     www.ietf.org:80
      www.ietf.org.cdn.cloudflare.net > 2400:cb00:2048:1::6814:155
      www.ietf.org.cdn.cloudflare.net > 2400:cb00:2048:1::6814:55
      www.ietf.org.cdn.cloudflare.net > 104.20.1.85
      www.ietf.org.cdn.cloudflare.net > 104.20.0.85
-
-    www.facebook.com:80
-     star.c10r.facebook.com > 2a03:2880:f01c:d01:face:b00c::1 >
-    edge-star6-shv-14-fra3.facebook.com
-     star.c10r.facebook.com > 31.13.93.241 >
-    edge-star-shv-14-fra3.facebook.com
 
     www.bing.com:80
      any.edge.bing.com > 204.79.197.200 > a-0001.a-msedge.net
@@ -49,10 +43,6 @@ all the options available in detail.
      2400:cb00:2048:1::6814:55                    8.573    8.767    8.573
      104.20.1.85                                 12.824   14.677   14.584
      104.20.0.85                                 12.794   14.573   12.746
-
-    www.facebook.com:80
-     2a03:2880:f01c:d01:face:b00c::1              8.678    8.471    8.902
-     31.13.93.241                                 9.268    8.441    8.285
 
     www.bing.com:80
      204.79.197.200                              24.434   26.091   26.309
