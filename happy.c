@@ -285,28 +285,28 @@ expand(const char *host, const char *port)
 	ep->addrlen = ai->ai_addrlen;
 	ep->values = xcalloc(nqueries, sizeof(unsigned int));
 	if (dmode) {
-	    char host[NI_MAXHOST];
+	    char revname[NI_MAXHOST];
 	    int n;
-	    host[0] = 0;
-      if (ai->ai_canonname != NULL) {
-      ep->canonname = strdup(ai->ai_canonname);
-      } else {
-        if (ai_list->ai_canonname != NULL) {
-          ep->canonname = strdup(ai_list->ai_canonname);
-        } else {
-          ep->canonname = strdup(host);
-        }
-      }
+	    revname[0] = 0;
+	    if (ai->ai_canonname != NULL) {
+		ep->canonname = strdup(ai->ai_canonname);
+	    } else {
+		if (ai_list->ai_canonname != NULL) {
+		    ep->canonname = strdup(ai_list->ai_canonname);
+		} else {
+		    ep->canonname = strdup(host);
+		}
+	    }
 
 	    n = getnameinfo(ai->ai_addr, ai->ai_addrlen,
-			    host, sizeof(host), NULL, 0,
+			    revname, sizeof(revname), NULL, 0,
 			    NI_NAMEREQD);
 	    if (n && n != EAI_NONAME) {
 		fprintf(stderr, "%s: getnameinfo: %s\n",
 			progname, gai_strerror(n));
 	    } else {
-		if (strlen(host)) {
-		    ep->reversename = strdup(host);
+		if (strlen(revname)) {
+		    ep->reversename = strdup(revname);
 		}
 	    }
 	}
