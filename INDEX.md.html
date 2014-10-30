@@ -16,21 +16,35 @@
 <h3 id="installation-and-usage">Installation and Usage</h3>
 <p>The build environment uses <code>cmake</code>. An accompanying man page describes all the options available in detail.</p>
 <pre><code>$ make
-$ bin/happy ‐s www.google.com www.bing.com 
-www.google.com:80
- 2a00:1450:4008:c01::69                       9.255   10.124    9.502
- 173.194.69.147                               8.918    9.493    9.253
- 173.194.69.99                                9.879    9.139   10.099
- 173.194.69.104                               9.544    9.503    9.802
- 173.194.69.105                               9.245    8.989   10.108
- 173.194.69.106                              10.111    9.533    9.798
- 173.194.69.103                               9.514    9.553    8.882
+$ make install
+$ happy -ac www.ietf.org www.facebook.com www.bing.com
+www.ietf.org:80
+ www.ietf.org.cdn.cloudflare.net &gt; 2400:cb00:2048:1::6814:155
+ www.ietf.org.cdn.cloudflare.net &gt; 2400:cb00:2048:1::6814:55
+ www.ietf.org.cdn.cloudflare.net &gt; 104.20.1.85
+ www.ietf.org.cdn.cloudflare.net &gt; 104.20.0.85
+
+www.facebook.com:80
+ star.c10r.facebook.com &gt; 2a03:2880:f01c:d01:face:b00c::1 &gt;
+edge-star6-shv-14-fra3.facebook.com
+ star.c10r.facebook.com &gt; 31.13.93.241 &gt;
+edge-star-shv-14-fra3.facebook.com
 
 www.bing.com:80
- 2001:638:a:2::d4c9:6487                      4.010    3.409    4.019
- 2001:638:a:2::d4c9:6490                      3.093    3.706    3.756
- 212.201.100.135                              3.400    3.397    4.004
- 212.201.100.144                              2.785    3.401    4.324</code></pre>
+ any.edge.bing.com &gt; 204.79.197.200 &gt; a-0001.a-msedge.net
+
+www.ietf.org:80
+ 2400:cb00:2048:1::6814:155                   8.297    8.411    8.759
+ 2400:cb00:2048:1::6814:55                    8.573    8.767    8.573
+ 104.20.1.85                                 12.824   14.677   14.584
+ 104.20.0.85                                 12.794   14.573   12.746
+
+www.facebook.com:80
+ 2a03:2880:f01c:d01:face:b00c::1              8.678    8.471    8.902
+ 31.13.93.241                                 9.268    8.441    8.285
+
+www.bing.com:80
+ 204.79.197.200                              24.434   26.091   26.309</code></pre>
 <h3 id="releases">Releases</h3>
 <p>You can either fork the bleeding edge development version or download a release from <a href="https://github.com/vbajpai/happy/releases">here →</a></p>
 <h3 id="measurement-trials">Measurement Trials</h3>
@@ -57,7 +71,7 @@ www.bing.com:80
 </ul>
 <h3 id="license">License</h3>
 <pre>
-Copyright (c) 2013, Juergen Schoenwaelder, Jacobs University Bremen
+Copyright (c) 2013-2014, Juergen Schoenwaelder, Jacobs University Bremen
 Copyright (c) 2014, Vaibhav Bajpai, Jacobs University Bremen
 All rights reserved.
 
