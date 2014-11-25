@@ -409,9 +409,9 @@ expand(const char *host, const char *port)
       canonname = NULL;
       for(int i = 0; i < dstset_num; i++){
          char* dst = dstset[i];
-         if (i == 0) asprintf(&canonname, "%s",dst);
-         if (i == 1) asprintf(&canonname, ">");
-         if (i + 1 == dstset_num){
+         if (i == 0) { asprintf(&canonname, "%s", dst); continue; }
+         if (i == 1) { asprintf(&canonname, "%s >", canonname); }
+         if ((i + 1) == dstset_num) {
            asprintf(&canonname, "%s %s",canonname,dst);
          } else {
            asprintf(&canonname, "%s %s >",canonname,dst);
