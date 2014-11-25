@@ -59,6 +59,11 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+
 static const char *progname = "happy";
 
 #ifndef NI_MAXHOST
@@ -239,6 +244,92 @@ append(target_t *target)
     }
 }
 
+/* Handler to parse DNS response messages; particularly CNAME answers. This is
+ * used because getaddrinfo(...) and AI_CANONNAME cannot be used with the
+ * glibc version on SamKnows probes. The version returns PTR entries when
+ * asked for a CNAME. Therefore explicit CNAME query request needs to be made
+ * and a handler function is needed to parse CNAME responses.
+ * */
+
+char*
+parse_cname_response(
+                      const u_char* const answer,
+                      const int answerlen
+                    ) {
+
+  /* initialize data structure to store the parsed response */
+  ns_msg handle;
+  if (
+      ns_initparse(
+                    answer,     /* answer buffer */
+                    answerlen,  /* true answer length */
+                    &handle     /* data structure filled in by ns_initparse */
+                  ) < 0
+      ) {
+    herror("ns_initparse(...)");
+    exit(EXIT_FAILURE);
+  }
+
+  /* Ideally one would iterate over each resource record returned by
+   * ns_msg_count(...). However, this is a specific parse function for CNAME
+   * records and because a RR cannot have any other records along with a
+   * CNAME [RFC 1912], there is no need to iterate in a loop, but only once,
+   * therefore rrnum is set to 0 */
+
+  ns_rr rr; int rrnum = 0;
+
+  /* parse the answer section of the resource record */
+  if (
+       ns_parserr(
+                   &handle, /* data structure filled by ns_initparse */
+                   ns_s_an, /* resource record answer section */
+                   rrnum,   /* resource record index in this section */
+                   &rr      /* data structure filled in by ns_parseerr */
+                 ) < 0
+     ) {
+
+    /* continue to the next resource records if this cannot be parsed */
+    if (errno != ENODEV) {
+      herror("ns_parserr(...)");
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  char* dst = NULL;
+  switch (ns_rr_type(rr)) {
+
+    /* type: CNAME record */
+    case ns_t_cname:
+      dst = (char *) calloc (1, NI_MAXHOST);
+      if(dst == NULL){
+          perror("calloc(...)");
+          exit(EXIT_FAILURE);
+      }
+
+      /* Uncompress the DNS string */
+      if (
+           ns_name_uncompress(
+                                ns_msg_base(handle) /* Message Start */
+                              , ns_msg_end(handle)  /* Message End */
+                              , ns_rr_rdata(rr)     /* Message Position */
+                              , dst                 /* Result */
+                              , NI_MAXHOST          /* Result Size */
+                             ) < 0
+         ) {
+          (void) fprintf(stderr, "ns_name_uncompress failed\n");
+          exit(EXIT_FAILURE);
+      }
+
+      break;
+
+    /* ignore all the other types */
+    default:
+      break;
+  }
+
+  return dst;
+}
+
 /*
  * Resolve the host and port name and if successful establish a new
  * target and create the vector of endpoints we are going to probe
@@ -249,6 +340,7 @@ static target_t*
 expand(const char *host, const char *port)
 {
     struct addrinfo hints, *ai_list, *ai;
+    char* canonname = NULL;
     int n;
     target_t *tp;
     endpoint_t *ep;
@@ -259,7 +351,72 @@ expand(const char *host, const char *port)
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     if (dmode) {
-	hints.ai_flags |= AI_CANONNAME;
+
+      /*  In order to get the CNAME, one can set the AI_CANONNAME flag in
+       *  hints.ai_flags. However it appears glibc tends to return PTR entries
+       *  when this flag is turned on (see:
+       *  http://marc.info/?l=glibc-alpha&m=109239199429843&w=2) . The newer
+       *  versions of glibc have been patched, however the version running on
+       *  SamKnows probes still has this behavior. As a workaround, we use
+       *  BIND functions to explicitly send a CNAME query and parse the DNS
+       *  response ourselves. The answer string is then plugged back into the
+       *  result structures used below.
+       */
+
+      /* hints.ai_flags |= AI_CANONNAME; */
+
+      /* list to keep a chain of CNAME strings */
+      short dstset_num = 0;
+      const char* query_name = host;
+      char** dstset = calloc(1, sizeof(char*));
+      if (dstset == NULL) {
+        perror("calloc(...)");
+        exit(EXIT_FAILURE);
+      }
+      while(1) {
+
+        /* send a DNS query for CNAME record of the input service name */
+        u_char answer[NS_PACKETSZ];
+        int answerlen =
+          res_search (
+                         query_name        /* domain name */
+                       , ns_c_in           /* class type, see: arpa/nameserv.h */
+                       , ns_t_cname        /* rr type, see: arpa/nameserv.h */
+                       , (u_char *) answer /* answer buffer */
+                       , NS_PACKETSZ       /* answer buffer length */
+                     );
+        if(answerlen == -1) {
+          herror("res_search(...)");
+          break;
+        } else {
+
+          /* parse the received response */
+          canonname =
+            parse_cname_response (
+                                     answer     /* received response */
+                                   , answerlen  /* true response len */
+                                 );
+        }
+
+        if (canonname != NULL) {
+          dstset = realloc(dstset, (dstset_num+1) * sizeof(char*));
+          dstset[dstset_num] = canonname;
+          dstset_num += 1;
+          query_name = canonname;
+        }
+      }
+
+      canonname = NULL;
+      for(int i = 0; i < dstset_num; i++){
+         char* dst = dstset[i];
+         if (i == 0) asprintf(&canonname, "%s",dst);
+         if (i == 1) asprintf(&canonname, ">");
+         if (i + 1 == dstset_num){
+           asprintf(&canonname, "%s %s",canonname,dst);
+         } else {
+           asprintf(&canonname, "%s %s >",canonname,dst);
+         }
+      }
     }
 
     n = getaddrinfo(host, port, &hints, &ai_list);
@@ -288,14 +445,10 @@ expand(const char *host, const char *port)
 	    char revname[NI_MAXHOST];
 	    int n;
 	    revname[0] = 0;
-	    if (ai->ai_canonname != NULL) {
-		ep->canonname = strdup(ai->ai_canonname);
+	    if (canonname != NULL) {
+		ep->canonname = strdup(canonname);
 	    } else {
-		if (ai_list->ai_canonname != NULL) {
-		    ep->canonname = strdup(ai_list->ai_canonname);
-		} else {
 		    ep->canonname = strdup(host);
-		}
 	    }
 
 	    n = getnameinfo(ai->ai_addr, ai->ai_addrlen,
