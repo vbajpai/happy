@@ -39,6 +39,7 @@
 #define _POSIX_C_SOURCE 2
 #define _BSD_SOURCE
 #define _DARWIN_C_SOURCE
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -406,6 +407,7 @@ expand(const char *host, const char *port)
         }
       }
 
+      /* create a string represetation of CNAME chains */
       canonname = NULL;
       for(int i = 0; i < dstset_num; i++){
          char* dst = dstset[i];
@@ -416,7 +418,9 @@ expand(const char *host, const char *port)
          } else {
            asprintf(&canonname, "%s %s >",canonname,dst);
          }
+         free(dst); dst = NULL;
       }
+      free(dstset); dstset = NULL;
     }
 
     n = getaddrinfo(host, port, &hints, &ai_list);
