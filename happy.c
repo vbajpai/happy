@@ -318,6 +318,7 @@ parse_cname_response(
                              ) < 0
          ) {
           (void) fprintf(stderr, "ns_name_uncompress failed\n");
+          free(dst); dst = NULL;
           exit(EXIT_FAILURE);
       }
 
@@ -368,12 +369,8 @@ expand(const char *host, const char *port)
 
       /* list to keep a chain of CNAME strings */
       short dstset_num = 0;
+      char** dstset = NULL;
       const char* query_name = host;
-      char** dstset = calloc(1, sizeof(char*));
-      if (dstset == NULL) {
-        perror("calloc(...)");
-        exit(EXIT_FAILURE);
-      }
       while(1) {
 
         /* send a DNS query for CNAME record of the input service name */
@@ -387,7 +384,6 @@ expand(const char *host, const char *port)
                        , NS_PACKETSZ       /* answer buffer length */
                      );
         if(answerlen == -1) {
-          herror("res_search(...)");
           break;
         } else {
 
@@ -399,8 +395,15 @@ expand(const char *host, const char *port)
                                  );
         }
 
+        /* list to keep a chain of CNAME strings */
         if (canonname != NULL) {
-          dstset = realloc(dstset, (dstset_num+1) * sizeof(char*));
+          if (dstset_num == 0) {
+            dstset = calloc(dstset_num + 1, sizeof(char*));
+            if (dstset == NULL) { perror("calloc(...)"); exit(EXIT_FAILURE); }
+          } else {
+            dstset = realloc(dstset, (dstset_num+1) * sizeof(char*));
+            if (dstset == NULL) { perror("realloc(...)"); exit(EXIT_FAILURE); }
+          }
           dstset[dstset_num] = canonname;
           dstset_num += 1;
           query_name = canonname;
@@ -410,15 +413,17 @@ expand(const char *host, const char *port)
       /* create a string represetation of CNAME chains */
       canonname = NULL;
       for(int i = 0; i < dstset_num; i++){
+         char* dangler = canonname;
          char* dst = dstset[i];
-         if (i == 0) { asprintf(&canonname, "%s", dst); continue; }
-         if (i == 1) { asprintf(&canonname, "%s >", canonname); }
-         if ((i + 1) == dstset_num) {
-           asprintf(&canonname, "%s %s",canonname,dst);
-         } else {
-           asprintf(&canonname, "%s %s >",canonname,dst);
+         if (i == 0) { asprintf(&canonname, "%s", dst); free(dst); continue; }
+         if (i == 1) {
+           asprintf(&canonname, "%s >", dangler);
+           free(dangler); dangler = canonname;
          }
-         free(dst); dst = NULL;
+         if ((i + 1) == dstset_num) asprintf(&canonname, "%s %s",dangler,dst);
+         else asprintf(&canonname, "%s %s >", dangler, dst);
+         if (dst != NULL) { free(dst); dst = NULL; }
+         if (dangler !=NULL) { free(dangler); dangler = NULL; }
       }
       free(dstset); dstset = NULL;
     }
@@ -470,6 +475,7 @@ expand(const char *host, const char *port)
     }
 
     freeaddrinfo(ai_list);
+    free(canonname); canonname = NULL;
 
     return tp;
 }
