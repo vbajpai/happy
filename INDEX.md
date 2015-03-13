@@ -68,7 +68,7 @@ test from your vantage point.
 IPv4 versus IPv6 - Who connects faster? &rarr;  
 Vaibhav Bajpai and Jürgen Schönwälder  
 IFIP Networking Conference 2015. 
-Toulouse, May 2015 *[Acceptance Rate: 23.2%, 47/202 papers]*  
+Toulouse, May 2015 **[Acceptance Rate: 23.2%, 47/202 papers]**  
 
 [Measuring TCP Connection Establishment Times of Dual-Stacked Web
 Services &rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-tcp-cnsm-2013.pdf)  
