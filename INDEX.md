@@ -60,7 +60,7 @@ experiment, send us an email and we will ship you a SamKnows probe that
 in addition to the standard SamKnows tests will also perform the `happy`
 test from your vantage point.
 
-![](http://i.imgur.com/WEisgJg.jpg)
+![imgur](http://i.imgur.com/Q5zDDomh.jpg)
 <br/>
 
 ### Publications
