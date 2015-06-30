@@ -125,7 +125,7 @@ static unsigned int delay = 25;		/* in ms */
 static int pump_timeout = 2000;		/* in ms */
 
 static int target_valid(target_t *tp) {
-    return (tp && tp->host && tp->port && tp->endpoints);
+    return (tp && tp->host && tp->port);
 }
 
 static int endpoint_valid(endpoint_t *ep) {
@@ -410,7 +410,7 @@ expand(const char *host, const char *port)
         }
       }
 
-      /* create a string represetation of CNAME chains */
+      /* create a string representation of CNAME chains */
       canonname = NULL;
       for(int i = 0; i < dstset_num; i++){
          char* dangler = canonname;
@@ -428,11 +428,15 @@ expand(const char *host, const char *port)
       free(dstset); dstset = NULL;
     }
 
+    tp = xcalloc(1, sizeof(target_t));
+    tp->host = strdup(host);
+    tp->port = strdup(port);
+
     n = getaddrinfo(host, port, &hints, &ai_list);
     if (n != 0) {
-        fprintf(stderr, "%s: %s (skipping %s port %s)\n",
+        fprintf(stderr, "%s: getaddrinfo: %s (skipping %s port %s)\n",
                 progname, gai_strerror(n), host, port);
-        return NULL;
+	return tp;
     }
 
     tp = xcalloc(1, sizeof(target_t));
@@ -598,10 +602,6 @@ prepare(target_t *targets)
     struct timeval dts, dtn, dtd, dd;
 
     assert(targets);
-
-    if (! targets->num_endpoints) {
-        return;
-    }
 
     dd.tv_sec = delay / 1000;
     dd.tv_usec = (delay % 1000) * 1000;
@@ -918,6 +918,11 @@ report_sk(target_t *targets)
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
+	if (! tp->endpoints) {
+            printf("HAPPY.0;%lu;%s;%s;%s\n",
+                   now, "FAIL", tp->host, tp->port);
+	}
+
         for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 
             n = getnameinfo((struct sockaddr *) &ep->addr,
@@ -961,6 +966,11 @@ report_pump_sk(target_t *targets)
     now = time(NULL);
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
+
+	if (! tp->endpoints) {
+            printf("PUMP.0;%lu;%s;%s;%s\n",
+                   now, "FAIL", tp->host, tp->port);
+	}
 
         for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 
@@ -1008,6 +1018,11 @@ report_dns_sk(target_t *targets)
     now = time(NULL);
 
     for (tp = targets; target_valid(tp); tp = tp->next) {
+
+	if (! tp->endpoints) {
+            printf("DNS.0;%lu;%s;%s;%s\n",
+                   now, "FAIL", tp->host, tp->port);
+	}
 
 	for (ep = tp->endpoints; endpoint_valid(ep); ep++) {
 
