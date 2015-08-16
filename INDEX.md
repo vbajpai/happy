@@ -60,12 +60,13 @@ experiment, send us an email and we will ship you a SamKnows probe that
 in addition to the standard SamKnows tests will also perform the `happy`
 test from your vantage point.
 
-![imgur](http://i.imgur.com/Q5zDDomh.jpg)
+![imgur](http://i.imgur.com/02zrIYc.jpg)
 <br/>
 
 ### Publications
 
-IPv4 versus IPv6 - Who connects faster? &rarr;  
+[IPv4 versus IPv6 - Who connects faster?
+&rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-tcp-networking-2015.pdf)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 IFIP Networking Conference 2015    
 Toulouse, May 2015 **[Acceptance Rate: 23.2%, 47/202 papers]**  
