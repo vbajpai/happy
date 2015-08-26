@@ -1,9 +1,22 @@
-v0.2
+v0.4
+
+- report with a v0.4 version bump.
+
+v0.3 (pre-release)
+
+- when using -a report the entire CNAME chain of a given service.
+- glibc tends to return PTR entries when AI_CANONNAME flag is set; now
+  using BIND internal calls such as res_search(...) to explicitly ask for
+  CNAME records; and manually parsing the DNS response to circumvent
+  varying AI_CANONNAME behavior across platforms
+- report all targets even when they do not resolve to an endpoint
+
+v0.2 (pre-release)
 
 - added option -a to provide details about the result of the name lookups
 - updated the man page with a description of the -a option
 
-v0.1
+v0.1 (pre-release)
 
 - updated cmake to roperly handle installation of man pages
 - added option -b to measure the speed in which HTTP requests are responded to
