@@ -919,7 +919,7 @@ report_sk(target_t *targets)
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	if (! tp->endpoints) {
-            printf("HAPPY.0;%lu;%s;%s;%s\n",
+            printf("HAPPY.0.4;%lu;%s;%s;%s\n",
                    now, "FAIL", tp->host, tp->port);
 	}
 
@@ -935,7 +935,7 @@ report_sk(target_t *targets)
                 continue;
             }
 
-            printf("HAPPY.0;%lu;%s;%s;%s;%s",
+            printf("HAPPY.0.4;%lu;%s;%s;%s;%s",
                    now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
             for (i = 0; i < ep->idx; i++) {
                 printf(";%d", ep->values[i]);
@@ -968,7 +968,7 @@ report_pump_sk(target_t *targets)
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	if (! tp->endpoints) {
-            printf("PUMP.0;%lu;%s;%s;%s\n",
+            printf("PUMP.0.4;%lu;%s;%s;%s\n",
                    now, "FAIL", tp->host, tp->port);
 	}
 
@@ -984,7 +984,7 @@ report_pump_sk(target_t *targets)
                 continue;
             }
 
-            printf("PUMP.0;%lu;%s;%s;%s;%s",
+            printf("PUMP.0.4;%lu;%s;%s;%s;%s",
                    now, ep->cnt ? "OK" : "FAIL", tp->host, tp->port, host);
             printf(";%u.%03u",
                    ep->send / pump_timeout * 1000 / 1000,
@@ -1020,7 +1020,7 @@ report_dns_sk(target_t *targets)
     for (tp = targets; target_valid(tp); tp = tp->next) {
 
 	if (! tp->endpoints) {
-            printf("DNS.0;%lu;%s;%s;%s\n",
+            printf("DNS.0.4;%lu;%s;%s;%s\n",
                    now, "FAIL", tp->host, tp->port);
 	}
 
@@ -1036,7 +1036,7 @@ report_dns_sk(target_t *targets)
 		continue;
 	    }
 
-	    printf("DNS.0;%lu;%s;%s;%s;%s;%s",
+	    printf("DNS.0.4;%lu;%s;%s;%s;%s;%s",
 		   now, ep->cnt ? "OK" : "FAIL", tp->host, host,
 		   ep->canonname ? ep->canonname : "",
 		   ep->reversename ? ep->reversename : "");
