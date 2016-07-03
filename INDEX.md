@@ -65,6 +65,12 @@ test from your vantage point.
 
 ### Publications
 
+[Measuring the Effects of Happy Eyeballs
+&rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-he-anrw-2016.pdf)  
+Vaibhav Bajpai and Jürgen Schönwälder  
+Applied Networking Research Workshop 2016    
+Berlin, July 2016 **[Acceptance Rate: 60%, 18/30 papers]**  
+
 [IPv4 versus IPv6 - Who connects faster?
 &rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-tcp-networking-2015.pdf)  
 Vaibhav Bajpai and Jürgen Schönwälder  
