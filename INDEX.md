@@ -54,13 +54,13 @@ release from [here &rarr;](https://github.com/vbajpai/happy/releases)
 
 ### Measurement Trials
 
-We are currently running `happy` from a small sample of vantage points
+We are currently running `happy` from ~100 dual-stacked SamKnows probes.
 distributed all around the globe. In order to participate in this
 experiment, send us an email and we will ship you a SamKnows probe that
 in addition to the standard SamKnows tests will also perform the `happy`
 test from your vantage point.
 
-![imgur](http://i.imgur.com/02zrIYc.jpg)
+![imgur](http://i.imgur.com/A6jXrqG.png)
 <br/>
 
 ### Publications
@@ -69,7 +69,7 @@ test from your vantage point.
 &rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-he-anrw-2016.pdf)  
 Vaibhav Bajpai and Jürgen Schönwälder  
 Applied Networking Research Workshop 2016    
-Berlin, July 2016 **[Acceptance Rate: 60%, 18/30 papers]**  
+Berlin, July 2016 **[Acceptance Rate: 30%, 9/30 papers]**  
 
 [IPv4 versus IPv6 - Who connects faster?
 &rarr;](http://vaibhavbajpai.com/documents/papers/proceedings/dualstack-tcp-networking-2015.pdf)  
@@ -94,6 +94,28 @@ Vaibhav Bajpai and Jürgen Schönwälder
 RIPE Labs, June 2013
 
 ### Talks
+
+[Measuring the Effects of Happy Eyeballs
+&rarr;](http://vaibhavbajpai.com/documents/talks/dualstack-he-ripe73-slides.pdf)  
+Vaibhav Bajpai and Jürgen Schönwälder  
+RIPE 73, Madrid, October 2016  
+
+<iframe src="//player.vimeo.com/video/190700501"" width="500" height="376"
+frameborder="0" webkitallowfullscreen mozallowfullscreen
+allowfullscreen></iframe>
+
+<br/>
+
+[Measuring the Effects of Happy Eyeballs
+&rarr;](http://vaibhavbajpai.com/documents/talks/dualstack-he-anrw-2016-slides.pdf)  
+Vaibhav Bajpai and Jürgen Schönwälder  
+Applied Networking Research Workshop, Berlin, July 2016  
+
+<iframe src="//player.vimeo.com/video/175124880" width="500" height="376"
+frameborder="0" webkitallowfullscreen mozallowfullscreen
+allowfullscreen></iframe>
+
+<br/>
 
 [Measuring TCP Connection Establishment Times of Dual-Stacked Web
 Services
