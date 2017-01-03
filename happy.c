@@ -148,6 +148,21 @@ xcalloc(size_t nmemb, size_t size)
 }
 
 /*
+ * A realloc() that exits if we run out of memory.
+ */
+
+static void*
+xrealloc(void *ptr, size_t size)
+{
+    void *p = realloc(ptr, size);
+    if (!p) {
+        fprintf(stderr, "%s: memory allocation failure\n", progname);
+        exit(EXIT_FAILURE);
+    }
+    return p;
+}
+
+/*
  * Trim trailing and leading white space from a string. Note, this
  * version modifies the original string.
  */
@@ -245,91 +260,87 @@ append(target_t *target)
     }
 }
 
-/* Handler to parse DNS response messages; particularly CNAME answers. This is
- * used because getaddrinfo(...) and AI_CANONNAME cannot be used with the
- * glibc version on SamKnows probes. The version returns PTR entries when
- * asked for a CNAME. Therefore explicit CNAME query request needs to be made
- * and a handler function is needed to parse CNAME responses.
- * */
+/*
+ * Handler to parse DNS response messages; particularly CNAME
+ * answers. This is used because getaddrinfo(...) and AI_CANONNAME
+ * cannot be used with the glibc version on SamKnows probes. The
+ * version returns PTR entries when asked for a CNAME. Therefore
+ * explicit CNAME query request needs to be made and a handler
+ * function is needed to parse CNAME responses.
+ */
 
-char*
-parse_cname_response(
-                      const u_char* const answer,
-                      const int answerlen
-                    ) {
+static char*
+parse_cname_response(const u_char* const answer, const int answerlen)
+{
 
-  /* initialize data structure to store the parsed response */
-  ns_msg handle;
-  if (
-      ns_initparse(
-                    answer,     /* answer buffer */
-                    answerlen,  /* true answer length */
-                    &handle     /* data structure filled in by ns_initparse */
-                  ) < 0
-      ) {
-    herror("ns_initparse(...)");
-    exit(EXIT_FAILURE);
-  }
-
-  /* Ideally one would iterate over each resource record returned by
-   * ns_msg_count(...). However, this is a specific parse function for CNAME
-   * records and because a RR cannot have any other records along with a
-   * CNAME [RFC 1912], there is no need to iterate in a loop, but only once,
-   * therefore rrnum is set to 0 */
-
-  ns_rr rr; int rrnum = 0;
-
-  /* parse the answer section of the resource record */
-  if (
-       ns_parserr(
-                   &handle, /* data structure filled by ns_initparse */
-                   ns_s_an, /* resource record answer section */
-                   rrnum,   /* resource record index in this section */
-                   &rr      /* data structure filled in by ns_parseerr */
-                 ) < 0
-     ) {
-
-    /* continue to the next resource records if this cannot be parsed */
-    if (errno != ENODEV) {
-      herror("ns_parserr(...)");
-      exit(EXIT_FAILURE);
+    /* initialize data structure to store the parsed response */
+    ns_msg handle;
+    if (
+	ns_initparse(
+	    answer,     /* answer buffer */
+	    answerlen,  /* true answer length */
+	    &handle     /* data structure filled in by ns_initparse */
+	    ) < 0
+	) {
+	herror("ns_initparse(...)");
+	exit(EXIT_FAILURE);
     }
-  }
-
-  char* dst = NULL;
-  switch (ns_rr_type(rr)) {
-
-    /* type: CNAME record */
+    
+    /* Ideally one would iterate over each resource record returned by
+     * ns_msg_count(...). However, this is a specific parse function for CNAME
+     * records and because a RR cannot have any other records along with a
+     * CNAME [RFC 1912], there is no need to iterate in a loop, but only once,
+     * therefore rrnum is set to 0 */
+    
+    ns_rr rr; int rrnum = 0;
+    
+    /* parse the answer section of the resource record */
+    if (
+	ns_parserr(
+	    &handle, /* data structure filled by ns_initparse */
+	    ns_s_an, /* resource record answer section */
+	    rrnum,   /* resource record index in this section */
+	    &rr      /* data structure filled in by ns_parseerr */
+	    ) < 0
+	) {
+	
+	/* continue to the next resource records if this cannot be parsed */
+	if (errno != ENODEV) {
+	    herror("ns_parserr(...)");
+	    exit(EXIT_FAILURE);
+	}
+    }
+    
+    char* dst = NULL;
+    switch (ns_rr_type(rr)) {
+	
+	/* type: CNAME record */
     case ns_t_cname:
-      dst = (char *) calloc (1, NI_MAXHOST);
-      if(dst == NULL){
-          perror("calloc(...)");
-          exit(EXIT_FAILURE);
-      }
-
-      /* Uncompress the DNS string */
-      if (
-           ns_name_uncompress(
-                                ns_msg_base(handle) /* Message Start */
-                              , ns_msg_end(handle)  /* Message End */
-                              , ns_rr_rdata(rr)     /* Message Position */
-                              , dst                 /* Result */
-                              , NI_MAXHOST          /* Result Size */
-                             ) < 0
-         ) {
-          (void) fprintf(stderr, "ns_name_uncompress failed\n");
-          free(dst); dst = NULL;
-          exit(EXIT_FAILURE);
-      }
-
-      break;
-
-    /* ignore all the other types */
+	dst = (char *) xcalloc (1, NI_MAXHOST);
+	
+	/* Uncompress the DNS string */
+	if (
+	    ns_name_uncompress(
+		ns_msg_base(handle) /* Message Start */
+		, ns_msg_end(handle)  /* Message End */
+		, ns_rr_rdata(rr)     /* Message Position */
+		, dst                 /* Result */
+		, NI_MAXHOST          /* Result Size */
+		) < 0
+	    ) {
+	    (void) fprintf(stderr, "ns_name_uncompress failed\n");
+	    free(dst); dst = NULL;
+	    exit(EXIT_FAILURE);
+	}
+	
+	break;
+	
+	/* ignore all the other types */
     default:
-      break;
-  }
-
-  return dst;
+	break;
+    }
+    
+    return dst;
 }
 
 /*
@@ -353,79 +364,83 @@ expand(const char *host, const char *port)
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     if (dmode) {
+	
+	/*  In order to get the CNAME, one can set the AI_CANONNAME
+	 *  flag in hints.ai_flags. However it appears glibc tends to
+	 *  return PTR entries when this flag is turned on (see:
+	 *  http://marc.info/?l=glibc-alpha&m=109239199429843&w=2). The
+	 *  newer versions of glibc have been patched, however the
+	 *  version running on SamKnows probes still has this
+	 *  behavior. As a workaround, we use BIND functions to
+	 *  explicitly send a CNAME query and parse the DNS response
+	 *  ourselves. The answer string is then plugged back into the
+	 *  result structures used below.
+	 */
 
-      /*  In order to get the CNAME, one can set the AI_CANONNAME flag in
-       *  hints.ai_flags. However it appears glibc tends to return PTR entries
-       *  when this flag is turned on (see:
-       *  http://marc.info/?l=glibc-alpha&m=109239199429843&w=2) . The newer
-       *  versions of glibc have been patched, however the version running on
-       *  SamKnows probes still has this behavior. As a workaround, we use
-       *  BIND functions to explicitly send a CNAME query and parse the DNS
-       *  response ourselves. The answer string is then plugged back into the
-       *  result structures used below.
-       */
+	/* hints.ai_flags |= AI_CANONNAME; */
 
-      /* hints.ai_flags |= AI_CANONNAME; */
-
-      /* list to keep a chain of CNAME strings */
-      short dstset_num = 0;
-      char** dstset = NULL;
-      const char* query_name = host;
-      while(1) {
-
-        /* send a DNS query for CNAME record of the input service name */
-        u_char answer[NS_PACKETSZ];
-        int answerlen =
-          res_search (
-                         query_name        /* domain name */
-                       , ns_c_in           /* class type, see: arpa/nameserv.h */
-                       , ns_t_cname        /* rr type, see: arpa/nameserv.h */
-                       , (u_char *) answer /* answer buffer */
-                       , NS_PACKETSZ       /* answer buffer length */
-                     );
-        if(answerlen == -1) {
-          break;
-        } else {
-
-          /* parse the received response */
-          canonname =
-            parse_cname_response (
-                                     answer     /* received response */
-                                   , answerlen  /* true response len */
-                                 );
-        }
-
-        /* list to keep a chain of CNAME strings */
-        if (canonname != NULL) {
-          if (dstset_num == 0) {
-            dstset = calloc(dstset_num + 1, sizeof(char*));
-            if (dstset == NULL) { perror("calloc(...)"); exit(EXIT_FAILURE); }
-          } else {
-            dstset = realloc(dstset, (dstset_num+1) * sizeof(char*));
-            if (dstset == NULL) { perror("realloc(...)"); exit(EXIT_FAILURE); }
-          }
-          dstset[dstset_num] = canonname;
-          dstset_num += 1;
-          query_name = canonname;
-        }
-      }
-
-      /* create a string representation of CNAME chains */
-      canonname = NULL;
-      for(int i = 0; i < dstset_num; i++){
-         char* dangler = canonname;
-         char* dst = dstset[i];
-         if (i == 0) { asprintf(&canonname, "%s", dst); free(dst); continue; }
-         if (i == 1) {
-           asprintf(&canonname, "%s >", dangler);
-           free(dangler); dangler = canonname;
-         }
-         if ((i + 1) == dstset_num) asprintf(&canonname, "%s %s",dangler,dst);
-         else asprintf(&canonname, "%s %s >", dangler, dst);
-         if (dst != NULL) { free(dst); dst = NULL; }
-         if (dangler !=NULL) { free(dangler); dangler = NULL; }
-      }
-      free(dstset); dstset = NULL;
+	/* list to keep a chain of CNAME strings */
+	short dstset_num = 0;
+	char** dstset = NULL;
+	const char* query_name = host;
+	while (1) {
+	    
+	    /* send a DNS query for CNAME record of the input service name */
+	    u_char answer[NS_PACKETSZ];
+	    int answerlen = res_search (
+		query_name        /* domain name */
+		, ns_c_in           /* class type, see: arpa/nameserv.h */
+		, ns_t_cname        /* rr type, see: arpa/nameserv.h */
+		, (u_char *) answer /* answer buffer */
+		, NS_PACKETSZ       /* answer buffer length */
+		);
+	    if (answerlen == -1) {
+		break;
+	    } else {
+		
+		/* parse the received response */
+		canonname = parse_cname_response (
+		    answer     /* received response */
+		    , answerlen  /* true response len */
+		    );
+	    }
+	    
+	    /* list to keep a chain of CNAME strings */
+	    if (canonname != NULL) {
+		if (dstset_num == 0) {
+		    dstset = xcalloc(dstset_num + 1, sizeof(char*));
+		} else {
+		    dstset = xrealloc(dstset, (dstset_num+1) * sizeof(char*));
+		}
+		dstset[dstset_num] = canonname;
+		dstset_num += 1;
+	 	query_name = canonname;
+	    }
+	}
+	
+	/* create a string representation of CNAME chains */
+	canonname = NULL;
+	for (int i = 0; i < dstset_num; i++){
+	    char* dangler = canonname;
+	    char* dst = dstset[i];
+	    if (i == 0) {
+		asprintf(&canonname, "%s", dst);
+		free(dst);
+		continue;
+	    }
+	    if (i == 1) {
+		asprintf(&canonname, "%s >", dangler);
+		free(dangler); dangler = canonname;
+	    }
+	    if ((i + 1) == dstset_num) {
+		asprintf(&canonname, "%s %s",dangler,dst);
+	    } else {
+		asprintf(&canonname, "%s %s >", dangler, dst);
+	    }
+	    if (dst != NULL) { free(dst); dst = NULL; }
+	    if (dangler !=NULL) { free(dangler); dangler = NULL; }
+	}
+	free(dstset); dstset = NULL;
     }
 
     tp = xcalloc(1, sizeof(target_t));
@@ -438,10 +453,6 @@ expand(const char *host, const char *port)
                 progname, gai_strerror(n), host, port);
 	return tp;
     }
-
-    tp = xcalloc(1, sizeof(target_t));
-    tp->host = strdup(host);
-    tp->port = strdup(port);
 
     for (ai = ai_list, tp->num_endpoints = 0;
          ai; ai = ai->ai_next, tp->num_endpoints++) ;
@@ -461,7 +472,7 @@ expand(const char *host, const char *port)
 	    if (canonname != NULL) {
 		ep->canonname = strdup(canonname);
 	    } else {
-		    ep->canonname = strdup(host);
+		ep->canonname = strdup(host);
 	    }
 
 	    n = getnameinfo(ai->ai_addr, ai->ai_addrlen,
@@ -1310,7 +1321,7 @@ main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    if (! cmode && ! pmode && !dmode) {
+    if (! cmode && ! pmode && ! dmode) {
 	cmode = 1;
     }
 
@@ -1321,9 +1332,11 @@ main(int argc, char *argv[])
     }
 
     if (targets) {
-	for (i = 0; i < nqueries; i++) {
-	    prepare(targets);
-	    collect(targets);
+	if (smode || pmode) {
+	    for (i = 0; i < nqueries; i++) {
+		prepare(targets);
+		collect(targets);
+	    }
 	}
 	if (smode) {
 	    sort(targets);
