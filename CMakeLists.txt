@@ -7,8 +7,10 @@ project(happy C)
 include(GNUInstallDirs)
 
 add_executable(happy happy.c)
-set_property(SOURCE happy.c
-             APPEND PROPERTY COMPILE_FLAGS "--std=c99 -Wall")
+
+if(CMAKE_COMPILER_IS_GNUCC)
+    add_definitions(--std=c99 -Wall -Werror)
+endif(CMAKE_COMPILER_IS_GNUCC)
 
 target_link_libraries(happy resolv)
 
