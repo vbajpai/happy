@@ -37,7 +37,7 @@
  */
 
 #define _POSIX_C_SOURCE 2
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 #define _DARWIN_C_SOURCE
 #define _GNU_SOURCE
 
@@ -1332,7 +1332,7 @@ main(int argc, char *argv[])
     }
 
     if (targets) {
-	if (smode || pmode) {
+	if (cmode || smode || skmode || pmode) {
 	    for (i = 0; i < nqueries; i++) {
 		prepare(targets);
 		collect(targets);
